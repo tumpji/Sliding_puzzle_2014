@@ -12,28 +12,41 @@ namespace CONST
 class OBJECT 
 {
 public:
+	OBJECT ();
 	// 1-x kde x je CONST::policek , dale x predstavuje mezeru
 	OBJECT ( const char [CONST::policek] ); 	// interface 
 	OBJECT ( const OBJECT & ); 			// kopirovaci
 	~OBJECT (); 					// destruktor
 
 	// generator uzlu 
-	// vsechny ohodnoti a seradi podle ohodnoceni
-	// pokud nelze vytvorit vsechny 4 generuje NULL uk.
-	OBJECT *(*generate_children () )[4];		
+	// vsechny ohodnoti a seradi podle ohodnoceni takze [0].value <<
+	int generate_children_all (OBJECT [4]);	
+	// generuje s nejmensim ohodnocenim	
+	OBJECT * generate_best_children (); 
 
 
 	void print_obj ();				// debug fce na print
 private:
-	// vraci hodnotu ktera signalizuje kolik se toho ma generovat a ceho
-	// 0x1 - v levo neni misto
-	// 0x2 - v pravo neni misto
-	// 0x4 - nahore neni misto
-	// 0x8 - dole neni misto
-	char evaluate (); // ohodnoti podle heuristicke funkce, ktera je v nem impl.
+	// ohodnoti podle heuristicke funkce, ktera je v nem impl.
+	void evaluate (); 
 
-	char usporadani [ CONST::policek ]; 	// aktualni stav policek
-	int value; 		// hodnota heuristiky
-	bool children; 		// uz se to rozmnozovalo ? :D
+	// nastavi children dolni bity - zjisti jestli je okolo misto na posun
+	void inspect_near_elements ();
+
+	// najde prazdne misto a vrati jeho index
+	int get_whitespace_pos ();
+
+
+
+	// aktualni stav vsechn elementu 	
+	char usporadani [ CONST::policek ];	
+	// hodnota heuristiky
+	int value; 			
+
+	// 0x01 nelze pohnout doleva 
+	// 0x02 nelze pohnout vpravo
+	// 0x04 nelze pohnout nahoru
+	// 0x08 nelze pohnout dolu // dale 0x80 - generovany dolu
+	char children; 				
 };
 
