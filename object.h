@@ -4,6 +4,7 @@ namespace CONST
 	const int radku = 4;
 	const int sloupcu = 4;
 	const int policek = radku*sloupcu;
+	const int white_space_value = CONST::policek;
 
 	const char spravne_usporadani [CONST::policek] = // cilovy stav policek
 	{ 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16 };
@@ -33,6 +34,9 @@ public:
 
 
 	void print_obj ();				// debug fce na print
+
+	// format pro 3x3 "(1,2,3,4,5,6,7,8,9)" - 9 je volne misto
+	void print_obj_parser ();			// tisk stavu pro testovani
 private:
 	// ohodnoti podle heuristicke funkce, ktera je v nem impl.
 	void evaluate (); 

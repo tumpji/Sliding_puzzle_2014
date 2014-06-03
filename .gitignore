@@ -1,2 +1,6 @@
 *.swp
 *.o
+.gitignore
+*.run
+tests/__pychache__*
+*.run

@@ -1,28 +1,33 @@
 #!/usr/bin/env python3
 
-import os
-import time	
+import IOmodule
+import random
 
-class IOmodule:
+#x = IOmodule.IOmodule( "echo" )
+
+# hleda chyby v modulu object.o
+
+class Generator:
 	def __init__ ( self ):
-		self.pipe_in_name = "Testin_pipe"
-		self.pipe_out_name = "Testout_pipe"
-		os.mkfifo ( self.pipe_in_name )
-		os.mkfifo ( self.pipe_out_name  )
-		self.WritePipe = open ( self.pipe_out_name , os.O_WRONLY )
-		self.ReadPipe= open ( self.pipe_in_name, os.O_RDONLY )
+		self.policka = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
+		self.generate_random ()
 
 	def __del__ ( self ):
-		os.unlink ( self.pipe_in_name )
-		os.unlink ( self.pipe_out_name )
+		pass
 
-	def Post ( self , text ):
-		self.WritePipe.write ( text.decode( "UTF-8" ) ) 
+	def generate_random ( self ):
+		random.shuffle( self.policka )
 
-IOmodule ()
-
-#Post(IOmodule, "Hello Word !" )
-
-exit ( 0 )
+	def predej_programu ( self ):
+		temp_string = "("	
+		for number in self.policka:
+			temp_string += str(number) + ","
+		temp_string += ")"
+		print ( temp_string )
+			
+			
+		
 	
 
+x = Generator ()
+x.predej_programu ()

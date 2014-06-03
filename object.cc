@@ -254,7 +254,7 @@ int OBJECT::generate_children_all ( OBJECT data [4] )
 void OBJECT::print_obj ( )
 {
 	std::cout << 	"----------------------------------------\n"
-		  <<	"children:\t" << children << "\t" 
+		  <<	"children:\t" << (int)children << "\t" 
 		  <<	*to_binary ( children ) << "\n"
 		  <<	"value:\t" << value << std::endl;
 
@@ -275,7 +275,16 @@ void OBJECT::print_obj ( )
 	std::endl;
 }
 
-
+void OBJECT::print_obj_parser ( )
+{
+	std::cout << "(";
+	for ( int pos = 0 ; pos < CONST::policek ; ++pos )
+	{
+		std::cout << (int)usporadani[pos] << ',';
+	}
+	std::cout << ")";
+		
+}
 
 
 
