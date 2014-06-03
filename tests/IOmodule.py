@@ -6,7 +6,8 @@ import subprocess
 class IOmodule:
 	def __init__ ( self , name ):
 		self.program = subprocess.Popen (
-			[name],stdin=subprocess.PIPE , stdout = subprocess.PIPE )
+			[name],stdin=subprocess.PIPE , stdout = subprocess.PIPE,
+			bufsize=0 )
 	def __del__ ( self ):
 		print ( "Cekam na ukonceni programu" )
 		try:
@@ -24,9 +25,14 @@ class IOmodule:
 	def Read  ( self ):
 		if self.program.poll (): #ukoncil se program ?
 			raise "Program skoncil neocekavane"
-		return self.program.stdout.readline().decode( "UTF-8" )
+		line = ""
+		while line == "":
+			line = self.program.stdout.readline().decode( "UTF-8" )
+		return line
 
 
-
+class MyError ( Exception ):
+	def __init__ ( self, message ):
+		self.message = message
 
 

@@ -7,17 +7,11 @@ int main ( void )
 {
 
 	string x;
-	cout << "Testovani programu" << endl;
 
-	while ( 1 )
-	{
-
-		getline ( std::cin , x );
-		cout << x << std::endl;
-		if ( x == "ahoj" )
-			break;
-	}
-
+	getline ( std::cin , x );
+	cout << x << std::endl;
+	getline ( std::cin , x );
+	cout << x << std::endl;
 
 	return 0;
 }
