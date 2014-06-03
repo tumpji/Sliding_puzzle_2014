@@ -7,6 +7,13 @@ namespace CONST
 
 	const char spravne_usporadani [CONST::policek] = // cilovy stav policek
 	{ 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16 };
+
+	enum { VLEVO = 0x10 , VPRAVO = 0x20 , NAHORU = 0x40, DOLU = 0x80 };
+
+	namespace MOVES
+	{
+		enum {  VLEVO = -1 , VPRAVO = 1 , NAHORU = -CONST::sloupcu , DOLU = CONST::sloupcu };
+	}
 }
 
 class OBJECT 
@@ -32,10 +39,6 @@ private:
 
 	// nastavi children dolni bity - zjisti jestli je okolo misto na posun
 	void inspect_near_elements ();
-
-	// najde prazdne misto a vrati jeho index
-	int get_whitespace_pos ();
-
 
 
 	// aktualni stav vsechn elementu 	

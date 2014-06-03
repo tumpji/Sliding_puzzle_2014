@@ -1,4 +1,4 @@
-#include <stdio.h> // depr.
+#include <cassert>
 #include <iostream>
 #include <climits>
 #include "object.h"	
@@ -33,14 +33,43 @@
  *
  ********************************************************************************************** */
 
+// converts to binary
+template< class T >
+inline static const char (*to_binary ( T cislo ))[ sizeof(T)*8 + 1]
+{
+	static char data [ sizeof(T)*8 + 1 ];
+
+	for ( int x = 0; x < sizeof(T)*8; ++x )
+		if ( cislo & ( 1 << x ) )
+			data[x] = '1';
+		else
+			data[x] = '0';
+	return &data;
+} 
+
 // prehodi 2 hodnoty
 template< class T >
-void swap ( T& x1 , T& x2)
+inline static void swap ( T& x1 , T& x2)
 {
 	T temp = x1;
 	x1 = x2;
 	x2 = temp;
 } 
+
+// najde prazdne misto a zasle jeho index
+// jestli ho nenajde => assert
+inline static int get_whitespace_pos ( const char * const usporadani )
+{
+	int void_position = 0;
+
+	for (; void_position < CONST::policek; ++void_position ) // prochazi vsechno
+		if ( usporadani[void_position] == CONST::policek ) // prazdne misto ?
+			return void_position;
+
+	assert ( !"Nenasel jsem bily znak\n" );
+	exit( 1 );
+}
+
 
 OBJECT::OBJECT ( )
 {
@@ -58,9 +87,8 @@ OBJECT::OBJECT ( const char predana [ CONST::policek ] )
 	for ( int x = 0; x < CONST::policek ; ++x )
 		usporadani[x] = predana[x]; // kopirovani
 
-	children = 0; // upravi pozdeji
 	evaluate (); // doplni value
-	inspect_near_elements ();
+	inspect_near_elements (); // doplnuje prom. children 
 }
 
 // kopirovaci konstruktor
@@ -77,24 +105,13 @@ OBJECT::~OBJECT ()
 {
 }
 
-// najde prazdne misto a zasle jeho index
-int OBJECT::get_whitespace_pos ( )
-{
-	int void_position = 0;
-	for (; void_position < CONST::policek; ++void_position ) // prochazi vsechno
-		if ( usporadani[void_position] == CONST::policek ) // prazdne misto ?
-			return void_position;
-
-	std::cerr << "Nenasel jsem bily znak\n";
-	exit ( 1 );
-}
 
 // zkontroluje, jestli lze vytvorit okolni posunuti - vlevo,vpravo...
 void OBJECT::inspect_near_elements ()
 {
 	// oznaci "1" ty co nelze uz vytvorit 
 	// zaroven jim da flag "jiz vygenerovany"
-	int void_position = get_whitespace_pos ();
+	int void_position = get_whitespace_pos ( usporadani );
 	children = 0;
 	if ( void_position%4 == 0 ) children |= 0x11; // doleva nelze
 	if ( void_position%4 == 3 ) children |= 0x22; // vpravo
@@ -143,67 +160,49 @@ void OBJECT::evaluate ( )
 OBJECT* OBJECT::generate_best_children ()
 {
 	static OBJECT temp [ 4 ]; // zasobnik 
-	int white_space_pos = get_whitespace_pos (); // kde je mezera
-	int best_value_index = -1; // nejlepsi z potomku
+	int best_value_index = 0; // nejlepsi z potomku
+	auto temp_children = children;
+	int maximum = generate_children_all ( temp ); // generuje vsechny deti
+	children = temp_children;
 
-	for ( int obj = 0 ; obj < 4 ; ++obj ) // pro vsechny objekty
+	if ( maximum == 0 ) return NULL; // nevygeneroval ani jeden
+
+	for ( int pos = 1 ; pos < maximum ; ++pos ) // pro vsechny posekty
 	{ 
-		// nema smysl delat to co je jiz vytvoreno
-		if ( children & ( 0x10 << obj ) ) continue; 
+		if ( 	temp[best_value_index].value >
+			temp[pos].value )
+		best_value_index = pos;	
+	} // vybere nejlepsiho kandidata a poznaci se jeho index
+	// musime zjistit co to bylo za posun
+	
+	int white_space = get_whitespace_pos ( usporadani );
+	static int moves [ 4 ] = 
+	{ CONST::MOVES::VLEVO , CONST::MOVES::VPRAVO , CONST::MOVES::NAHORU , CONST::MOVES::DOLU }; 
+	static int tests [ 4 ] = { CONST::VLEVO , CONST::VPRAVO , CONST::NAHORU , CONST::DOLU };
 
-		// nejprve kopie usporadani do temp obj.
-		for ( int pos = 0 ; pos < CONST::policek ; ++pos )
-			temp[obj].usporadani[pos] = usporadani[pos]; 
-		
-		switch ( obj ) // modifikace 
-		{
-		case 0: // 1 -- leva
-			swap ( 	temp[obj].usporadani[white_space_pos] ,
-				temp[obj].usporadani[white_space_pos -1] );
-			temp[obj].inspect_near_elements (); // kam se jde dal
-			temp[obj].children |= 0x20; // zpetna zarazka
-			break;
-		case 1: // 2 -- pravo
-			swap ( 	temp[obj].usporadani[white_space_pos] ,
-				temp[obj].usporadani[white_space_pos +1] );
-			temp[obj].inspect_near_elements (); // kam se jde dal
-			temp[obj].children |= 0x10; // zpetna zarazka
-			break;
-		case 2: // 4 -- nahoru
-			swap ( 	temp[obj].usporadani[white_space_pos] ,
-				temp[obj].usporadani[white_space_pos - CONST::sloupcu] );
-			temp[obj].inspect_near_elements (); // kam se jde dal
-			temp[obj].children |= 0x80; // zpetna zarazka
-			break;
-		case 3: // 8 -- dolu 
-			swap ( 	temp[obj].usporadani[white_space_pos] ,
-				temp[obj].usporadani[white_space_pos + CONST::sloupcu] );
-			temp[obj].inspect_near_elements (); // kam se jde dal
-			temp[obj].children |= 0x40; // zpetna zarazka
-			break;
-		}
-		
-		temp[obj].evaluate (); // aplikuje heuristiku
-
-		// porovna s ostatnimi vysledky heuristiky
-		if ( 	best_value_index == -1 || 
-			( temp[obj].value < temp[best_value_index].value ) )
-			best_value_index = obj;
-	}
-
-	if (  best_value_index == -1 )
-		return NULL;
-	else
+	for ( int pos = 0 ; pos < 4 ; ++pos )	
 	{
-		children |= 0x10 << best_value_index; // tohle uz nikdy nevytvori
+		if ( children & tests[ pos ]) // je to vubec mozne ?
+			continue;
+
+	  	if ( temp[best_value_index].usporadani[white_space + moves[pos]] !=
+			usporadani[white_space] ) // vlevo
+			continue;
+
+		children |= tests[ pos ];
 		return &( temp[best_value_index] );
 	}
+
+	// sem by se to nemelo dostat
+	assert ( 0 );  
+	exit ( 1 );
 }
 
 int OBJECT::generate_children_all ( OBJECT data [4] )
 {
 	int offset = 0;
-	int white_space_pos = get_whitespace_pos (); // kde je mezera
+	static const char zarazka [ 4 ] = { 0x20 , 0x10 , (char)0x80 , 0x40 };	
+	int white_space_pos = get_whitespace_pos ( usporadani ); // kde je mezera
 
 	for ( int obj = 0 ; obj < 4 ; ++obj )
 	{
@@ -221,76 +220,59 @@ int OBJECT::generate_children_all ( OBJECT data [4] )
 		{
 		case 0: // 1 -- leva
 			swap ( 	data[offset + obj].usporadani[white_space_pos] ,
-				data[offset + obj].usporadani[white_space_pos -1] );
-			data[offset + obj].inspect_near_elements (); // kam se jde dal
-			data[offset + obj].children |= 0x20; // zpetna zarazka
+				data[offset + obj].usporadani[white_space_pos + CONST::MOVES::VLEVO] );
 			break;
 		case 1: // 2 -- pravo
 			swap ( 	data[offset + obj].usporadani[white_space_pos] ,
-				data[offset + obj].usporadani[white_space_pos +1] );
-			data[offset + obj].inspect_near_elements (); // kam se jde dal
-			data[offset + obj].children |= 0x10; // zpetna zarazka
+				data[offset + obj].usporadani[white_space_pos + CONST::MOVES::VPRAVO] );
 			break;
 		case 2: // 4 -- nahoru
 			swap ( 	data[offset + obj].usporadani[white_space_pos] ,
-				data[offset + obj].usporadani[white_space_pos - CONST::sloupcu] );
-			data[offset + obj].inspect_near_elements (); // kam se jde dal
-			data[offset + obj].children |= 0x80; // zpetna zarazka
+				data[offset + obj].usporadani[white_space_pos + CONST::MOVES::NAHORU] );
 			break;
 		case 3: // 8 -- dolu 
 			swap ( 	data[offset + obj].usporadani[white_space_pos] ,
-				data[offset + obj].usporadani[white_space_pos + CONST::sloupcu] );
-			data[offset + obj].inspect_near_elements (); // kam se jde dal
-			data[offset + obj].children |= 0x40; // zpetna zarazka
+				data[offset + obj].usporadani[white_space_pos + CONST::MOVES::DOLU] );
 			break;
 		}
 
-		data[offset + obj].evaluate ();
+		data[offset + obj].inspect_near_elements (); // kam se jde dal 
+		data[offset + obj].children |= zarazka[obj]; // zpetna zarazka
+		data[offset + obj].evaluate (); // ohodnoti heuristikou
 	}
 
-	children |= 0xf0;
-	return offset + 4;	
+	// nastavi, ze vsechny jsou pouzity !!!
+	children |= CONST::VLEVO | CONST::VPRAVO | CONST::NAHORU | CONST::DOLU; 	
+	return offset + 4;	// vrati kolik jich vytvoril ( offset <= 0 )
 }
 
 
 /*****************************************************************************/
 /********************************** DEBUG ************************************/
 
-// converts to binary
-template< class T >
-char * byte_to_binary ( T cislo )
-{
-	static char data [sizeof(cislo) * 8 + 1] = {0};
-
-	for ( int x = 0; x < sizeof(cislo)*8; ++x )
-		if ( cislo & ( 1 << x ) )
-			data[x] = '1';
-		else
-			data[x] = '0';
-	return data;
-} 
-
 // vytiskne informace o OBJEKTU posklada do citelneho poradi
 void OBJECT::print_obj ( )
 {
-	printf ("------------ object_distance  ----------------"
-		"children: 	%i %s\n"
-		"value:		%i\n", 
-		children, byte_to_binary(children), value );
+	std::cout << 	"----------------------------------------\n"
+		  <<	"children:\t" << children << "\t" 
+		  <<	*to_binary ( children ) << "\n"
+		  <<	"value:\t" << value << std::endl;
 
 	for ( int radek = 0 ; radek < CONST::radku ; ++radek )
 	{
 		for ( int sloupec = 0; sloupec < CONST::sloupcu ; ++sloupec )
 		{
 			int cislo = usporadani[radek*CONST::sloupcu + sloupec];
-			if (  cislo <= 9 )
-				putc( ' ', stdout );
-			printf ( " %i " , cislo  );
+			if (  cislo <= 9 ) // odsazeni
+				std::cout << ' ' ;
+
+			std::cout << " " << cislo << " ";
 		}
-		printf ( "\n" );
+		std::cout << std::endl;
 	}
-	printf ( "--------------------------------------------\n" );
-	fflush ( stdin );
+
+	std::cout <<	"-----------------------------------------" <<
+	std::endl;
 }
 
 
