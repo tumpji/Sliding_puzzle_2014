@@ -1,4 +1,6 @@
 *.swp
 *.o
-tests/__pycache__*
+*.pyc
 *.run
+*__pycache__*
+
