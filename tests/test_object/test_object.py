@@ -92,12 +92,14 @@ class Rozhrani:
 
 # tahle trida se zabiva jestli odpovida to co bylo 	
 class TestModule:
-	def __init__ ( self ):
+	def __init__ ( self , pocet_testu ):
 		self.policka = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
 		self.output = None
 		self.rozhrani = Rozhrani()
-		self.number_of_test = 0
+
+		self.number_of_tests = pocet_testu
 		self.current_test = 0
+		self.passed_tests = 0
 
 	def __del__ ( self ):
 		pass
@@ -105,16 +107,19 @@ class TestModule:
 	# nastavi "nahodnnou" hodnou v self.policka a nastavi jaky test se pojede
 	def get_random ( self ):
 		random.shuffle( self.policka ) #prohazi to
-		self.current_test =  random.randint ( 0 , 1 )
+		self.current_type_of_test =  random.randint ( 0 , 0 )
 
 	# tiskne vstup a vystup z testu v pripade chyby
-	def print_error_msg ( self ): # tiskne puvodni a predany
+	def print_comparation ( self ): # tiskne puvodni a predany
 		print ( "#"*40 )		
 		string = "Puvodni:__________\n"
 		for i in range ( 0 , 16 ):
 			if i % 4 == 0:
 				string += "|"
-			string += "{0:^4}".format(str(self.policka[i]))
+			if self.policka[i] != 16:
+				string += "{0:^4}".format(str(self.policka[i]))
+			else:
+				string +=  ">{0:^2}<".format(str(self.policka[i]))
 			if i % 4 == 3:
 				string += "|\n"
 		string += "^" * (4*4 + 2 ) 
@@ -130,46 +135,121 @@ class TestModule:
 			for index in range ( 0 , len(out) ):
 				if index % 4 == 0:
 					zasobnik[index//4 + 1] += "|"
-				zasobnik[index//4 + 1] += "{0:^4}".format(str(out[index]))
+				if out[index] != 16:
+					zasobnik[index//4 + 1] += "{0:^4}".format(str(out[index]))
+				else:
+					zasobnik[index//4 + 1] += ">{0:^2}<".format(str(out[index]))
 				if index % 4 == 3:
 					zasobnik[index//4 + 1] += "| "
+
 		for string in zasobnik:	
 			print ( string )
 		print ( "#"*40 )		
 
 	# zjisti jake dva idnexy se oproti poslanemu zmenily
-	# vraci MyError jestli se nezmenili 2
-	def get_dismatch_indexes ( self , predany_tuple ):
-		ret_val = tuple()
+	# raise MyError v pripade:
+		# nejsou vsechny cisla obsazena 1-16 vc.
+		# soucet cisel neni takovy jaky ma byt
+		# nezmenili se prave 2 prvky
+		# zmenlo se poradi prvku s mezerou
+	# pro original je mezera [0]
+	def __get_dismatch_indexes ( self , predany_tuple ):
+		try: # nejprve kontroluje jestli jsou obsazeny vsechny ocekavane hodnoty
+			for num in range( 1 , 17 ):
+				predany_tuple.index ( num )
+		except ValueError:
+			raise IOmodule.MyError ( "CHYBA:\nNejsou obsazeny vsechny pozadovane cisla" )
+
+		if sum(predany_tuple) != 136: # soucet hodnot take musi odpovidat
+			raise IOmodule.MyError( "CHYBA:\nSoucet prvku neni 136" )
+
+		ret_val = tuple() # zkontroluje jestli jsou opravdu zmeneny prave 2 indexy
 		for index in range( 0 , 16 ):
 			if self.policka[index] != predany_tuple[index]:
 				ret_val += index,
 		if len(ret_val) != 2:
 			raise IOmodule.MyError( "CHYBA:\nRozdil neni ve dvou prvcich" )
-		return ret_val
+
+		# zkontroluje, jestli se zmenila mezera ( 16 ) , prevrati poradi aby
+		if self.policka[ret_val[0]] != 16:
+			if self.policka[ret_val[1]] != 16:
+				raise IOmodule.MyError ( "CHYBA:\nNezmenil se element 16 - mezera" )
+			return ( ret_val[1],ret_val[0], ) #obrati poradi
+		else:
+			return ret_val
+	
+	# preda tuple ktere rekne jestli je mozne na tuhle stranu posuvat z 
+	# hodnoty bere z self.policka
+	# ( leva , prava , nahoru , dolu ) ( 0 - ne , 1 - ano )
+	def __is_sliding_suitable ( self ):
+		ret_list = [ 0,0,0,0, ]
+		index = self.policka.index( 16 )
+		if index % 4 != 0:
+			ret_list[0] = 1
+		if index % 4 != 3:
+			ret_list[1] = 1
+		if index // 4 != 0:
+			ret_list[2] = 1
+		if index // 4 != 3:
+			ret_list[3] = 1
+		return tuple( ret_list )
+
+	# zjisti jestli je ok posunuti a preda list s hod. 1 pokud posunuti je timto smerem 
+	def check_sliding ( self , predany_tuple ):
+		slide_enabled = self.__is_sliding_suitable ()
+		ret_lis = [0,0,0,0] # levo pravo nahoru dolu
+		dismatch_tuple = self.__get_dismatch_indexes ( predany_tuple )
+		
+		if slide_enabled[0] and (dismatch_tuple[1] == dismatch_tuple[0] - 1):
+			ret_lis[0] = 1
+			return ret_lis
+		elif slide_enabled[1] and (dismatch_tuple[1] == dismatch_tuple[0] + 1):
+			ret_lis[1] = 1
+			return ret_lis
+		elif slide_enabled[2] and (dismatch_tuple[1] == dismatch_tuple[0] - 4 ):
+			ret_lis[2] = 1
+			return ret_lis
+		elif slide_enabled[3] and (dismatch_tuple[1] == dismatch_tuple[0] + 4 ):
+			ret_lis[3] = 1
+			return ret_lis
+		else:
+			raise IOmodule.MyError ( "CHYBA:\nPosunuti je divne az to boli" )
 
 	# kontroluje jestli test dopadl uspesne nebo ne
 	# NEDOKONCENO
 	def check_output ( self ):
 		try:
-			dismatch_tuple = self.get_dismatch_indexes ( self.output[0])
+			moved = self.check_sliding ( self.output[0])
+			self.passed_tests += 1
+			if 1:
+				print ( str(self.policka) + " ->\n" +
+					str(self.output[0]) + " OK " + str(moved) + "\n" + "^"*58 )
 		except IOmodule.MyError as msg:
 			print ( msg )
-			self.print_error_msg ()
+			self.print_comparation ()
 	
 	# generuje ruzne testy	
 	def Post_test ( self ):
-		for i in range( 0 , 10 ):
+		while self.current_test < self.number_of_tests:
+			self.current_test += 1
 			self.get_random () # prohazeni
-			print ( self.policka )
 			self.rozhrani.process_var_set ( self.policka )
-			self.rozhrani.process_send_command ( "getbest" )
+
+			if self.current_type_of_test == 0: # vyber druhu testu
+				self.rozhrani.process_send_command ( "getbest" )
+			elif self.current_type_of_test == 1:
+				self.rozhrani.process_send_command ( "getall" )
+			#elif self.current_type_of_test == 2:
+				#self.rozhrani.process_send_command ( "iterative_check" )
+
 			self.output = self.rozhrani.preber_od_programu ()
-			self.check_output ()
-		print ( "Testovani zkoncilo" )
-			
+			self.check_output () # vyhodnoceni jednoho testu
+		print ( "Testovani skoncilo " ) # zaverecna statistika 
+		print ( "vysledek: " + str(self.passed_tests) + "/" + str(self.number_of_tests) + 
+		 "\t{0:.1%}".format(self.passed_tests/self.number_of_tests) )
 		
-program = TestModule()
+		
+program = TestModule( 10 )
 program.Post_test ()
 		
 		
