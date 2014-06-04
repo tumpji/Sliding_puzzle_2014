@@ -98,8 +98,8 @@ class TestModule:
 		self.rozhrani = Rozhrani()
 
 		self.number_of_tests = pocet_testu
-		self.current_test = 0
-		self.passed_tests = 0
+		self.current_type_of_test = 0
+		self.errors= 0
 
 	def __del__ ( self ):
 		pass
@@ -107,7 +107,6 @@ class TestModule:
 	# nastavi "nahodnnou" hodnou v self.policka a nastavi jaky test se pojede
 	def get_random ( self ):
 		random.shuffle( self.policka ) #prohazi to
-		self.current_type_of_test =  random.randint ( 0 , 0 )
 
 	# tiskne vstup a vystup z testu v pripade chyby
 	def print_comparation ( self ): # tiskne puvodni a predany
@@ -215,45 +214,93 @@ class TestModule:
 		else:
 			raise IOmodule.MyError ( "CHYBA:\nPosunuti je divne az to boli" )
 
+	def __check_output_getbest ( self ):
+		if len( self.output ) != 1:
+			raise IOmodule.MyError ( "CHYBA:\nNeni predan 1 vystup v testu pro nejlepsi" )
+		moved = self.check_sliding ( self.output[0])
+
+	def __check_output_getall ( self ):
+		if len( self.output ) <= 1:
+			raise IOmodule.MyError ( "CHYBA:\nPredan pouze 1 vystup v testu pro vsechny" )
+		if len( self.output ) > 4:
+			raise IOmodule.MyError ( "CHYBA:\nPredan vice nez 4 vystupy v testu pro vsechny" )
+		mapa_souctu_posunuti = [ 0,0,0,0, ]
+		for child in self.output:
+			moved = self.check_sliding ( child )
+			for pos in range ( 0 , 4 ):
+				mapa_souctu_posunuti[pos] += moved[pos]
+		# kontrola jestli se predavaji ruzne
+		for index in range ( 0 , 4 ):	
+			if mapa_souctu_posunuti[index] > 1:
+				raise IOmodule.MyError ( "CHYBA:\nPredano nekolikrat stejne posunuti" )
+
+			if mapa_souctu_posunuti[index] == 0:
+					if mapa_souctu_posunuti[ (index + 1 )%2 + (index//2)*2 ] == 0:
+						raise IOmodule.MyError ( "CHYBA:\nNesmyslna mnozina vsech posunuti" )
+			
 	# kontroluje jestli test dopadl uspesne nebo ne
 	# NEDOKONCENO
 	def check_output ( self ):
 		try:
-			moved = self.check_sliding ( self.output[0])
-			self.passed_tests += 1
-			if 1:
+			#moved = self.check_sliding ( self.output[0] )
+			if self.current_type_of_test == 0:
+				self.__check_output_getbest ( )
+			elif self.current_type_of_test == 1:
+				self.__check_output_getall ( )
+			elif self.current_type_of_test == 2:
+				self.__check_output_getall ()
+
+			if 0:
 				print ( str(self.policka) + " ->\n" +
 					str(self.output[0]) + " OK " + str(moved) + "\n" + "^"*58 )
+
+			return True
 		except IOmodule.MyError as msg:
 			print ( msg )
 			self.print_comparation ()
+		return False
 	
 	# generuje ruzne testy	
-	def Post_test ( self ):
-		while self.current_test < self.number_of_tests:
-			self.current_test += 1
+	def Post_test ( self , typ_testu_string , pocet_testu ):
+		current_test = 0
+		passed_tests = 0
+		while current_test < pocet_testu:
+			current_test += 1
 			self.get_random () # prohazeni
+
+
 			self.rozhrani.process_var_set ( self.policka )
 
-			if self.current_type_of_test == 0: # vyber druhu testu
-				self.rozhrani.process_send_command ( "getbest" )
-			elif self.current_type_of_test == 1:
-				self.rozhrani.process_send_command ( "getall" )
-			#elif self.current_type_of_test == 2:
-				#self.rozhrani.process_send_command ( "iterative_check" )
-
 			self.output = self.rozhrani.preber_od_programu ()
-			self.check_output () # vyhodnoceni jednoho testu
-		print ( "Testovani skoncilo " ) # zaverecna statistika 
-		print ( "vysledek: " + str(self.passed_tests) + "/" + str(self.number_of_tests) + 
-		 "\t{0:.1%}".format(self.passed_tests/self.number_of_tests) )
-		
-		
-program = TestModule( 10 )
-program.Post_test ()
-		
-		
+			if self.check_output (): # vyhodnoceni jednoho testu
+				passed_tests += 1
+			else:
+				self.errors += 1
 
+			if (current_test % 1000000 == 0):
+				print ( typ_testu_string + "\t\tstat: " + 
+					str(passed_tests) + "/" + str(current_test) +
+					"\t " + "\t{0:.1%}".format(passed_tests/(current_test))
+					+ "\tchyb celkove : " + str(self.errors) )
+
+		print ( "Testovani skoncilo " ) # zaverecna statistika 
+		print ( "vysledek: " + str(passed_tests) + "/" + str(pocet_testu) + 
+		 "\t{0:.1%}".format(passed_tests/current_test) )
+
+	def Spustit_test ( self ):
+		commands = ( "getbest" , "getall" , "iterative_check" , )
+		testy_iterace = 0
+		while True:
+			self.current_type_of_test = (self.current_type_of_test + 1)%3
+			self.rozhrani.process_send_command ( commands[self.current_type_of_test] )
+			self.Post_test ( commands[self.current_type_of_test] , 10000000 )
+		
+		
+		
+program = TestModule( 1000000 )
+program.Spustit_test ()
+		
+		
 
 
 

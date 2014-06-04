@@ -37,7 +37,7 @@ class IOmodule:
 	def Read  ( self ):
 		try:
 			line = ""
-			while line == "":
+			while line == "" or line == "\n":
 				line = self.program.stdout.readline().decode( "UTF-8" )
 		except:
 			print ( "Nepodarilo se prebrat informace z programu" )
