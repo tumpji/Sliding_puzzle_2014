@@ -282,7 +282,7 @@ void OBJECT::print_obj_parser ( )
 	{
 		std::cout << (int)usporadani[pos] << ',';
 	}
-	std::cout << ")";
+	std::cout << ")" << std::endl;
 		
 }
 

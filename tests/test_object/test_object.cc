@@ -14,6 +14,8 @@ void parser ( void )
 	
 	while ( true )
 	{
+		if ( std::cin.eof( ) )
+			break;
 		getline ( std::cin , radek  );
 		
 		if ( radek == "getbest" )

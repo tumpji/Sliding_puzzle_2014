@@ -4,81 +4,93 @@ import IOmodule
 import random
 import time
 
-#x = IOmodule.IOmodule( "echo" )
 
-# hleda chyby v modulu object.o
+# zpracuje output z testovani a zkontroluje syntax nasledne prevede do pozadovaneho formatu
 class Rozhrani:
+	# otevre soubor a pripravy vsechny fifa
 	def __init__ ( self ):
-		self.program = IOmodule.IOmodule ( "./test_object.run" )
+		try:
+			self.program = IOmodule.IOmodule ( "./test_object.run" )
+		except:
+			print ( "Pri spusteni modulu IOmodule nastala chyba" )
+			exit ( 0 )
 
 	def __del__ ( self ):
 		pass
 
+	# posle programu zpravu aby nastavil promennou OBJECT do pozadovaneho stavu
+	# vstup je tuple/list ( iterovatelny obj ) o velikosti == 16 elem.
 	def process_var_set ( self , policka ):
-		temp_string = "set: ("	
+		assert ( len( policka ) == 16 ) 
+		temp_string = "("	
 		for number in policka:
 			temp_string += str(number) + ","
 		temp_string += ")\n"
-		self.program.Write ( temp_string )
+		try:
+			self.program.Write ( temp_string )
+		except: 
+			print ( "Nepodarilo se odeslat zpravu nastav var programu" )
+			exit ( 0 )
 
+	# posle textovou zpravu programu
+	# prebira argument command tj str() za nej automaticky doplnuje mezeru a odesle
 	def process_send_command ( self , command ):
 		command += "\n"
 		self.program.Write ( command )
 
+	# zjisti jestli to co obdrzel odpovida ocekavanemu formatu
+	# prebira iterovatelny obj ktery ma v sobe nekolik iterovatelnych obj
 	def check_output ( self , tuple_tuple ):
 		if len(tuple_tuple) > 4: # nemuze se vratit vice
-			return True
+			raise IOmodule.MyError ( "Velikost vstupu neodpovida" )	
 
 		for tup in tuple_tuple: # nemuze byt vetsi
 			if ( len(tup) != 16 ): # zkontroluje velikost
-				return True
-			
-			suma = 0
-			for elem in tup:
-				suma += elem
+				raise IOmodule.MyError ( "Velikost podprvku neodpovida" )	
 
-			if suma != 136:
-				return True
-				
-		return False # bez chyby ( ne zcela )
-
-	def print_error_message ( self, list_tuple ):
-		string = "Spatny format vystupniho retezce\nByl zpracovan jako:\n"
-		print ( string )
-		print ( list_tuple )
-
+	# parser z programu returnuje ( (,,,,,...) , (,,,,...) ... ) podle programu
 	def preber_od_programu ( self ): #vlastne parser testu
 		list_tuple = list()
 		temp_list = list()
 		temp_number = 0
-		string = self.program.Read ()
+
+		try:
+			string = self.program.Read ()
+		except:
+			print ( "Chyba pri cteni IOmodule::Read " )
+			exit ( 0 )
 
 		for i in string:
 			if   i == '{' : 	# zacinam odpovidat
 				pass
-			elif i == '}' :	# koncim odpoved programu
+			elif i == '}' :		# koncim odpoved programu
 				pass
-			elif i == '(' :	# zacina prvni list
-				temp_list = list() 	# init na novy
-			elif i == ')' : 		# konec listu
-				list_tuple += tuple(temp_list),# predpoklada se ok format
-				temp_list = list()
-			elif i == ',' :
-				temp_list += temp_number,
+			elif i == '(' :				# zacina novy vysledek
+				temp_list = list() 		# vycistit temp
+			elif i == ')' : 			# konec listu
+				list_tuple += tuple(temp_list),	# pridat k vysledku
+				temp_list = list()		# pro jistotu mazem znova
+			elif i == ',' : # indikuje konec cisla
+				temp_list += temp_number, # pridani do momentalne zpr. vysl.
 				temp_number = 0
-			elif i <= '9' and i >= '0': #number
+			elif i <= '9' and i >= '0':  # cisla 
 				temp_number *= 10
 				temp_number += int(i)
 
-		if ( self.check_output( list_tuple ) ):
-			self.print_error_message ( list_tuple )
-			raise IOmodule.MyError ( " Spatny format " )
+		try: # kontroluje jestli je v poradku to co bylo zpracovano ( pocet poloz. ... )
+			self.check_output( list_tuple ) 
+		except IOmodule.MyError as msg:
+			print ( "Neodpovida format vstupu" )
+			print ( msg + "\nByl zpracovan jako:\n" )
+			print ( list_tuple )
+			exit (0)
 
 		return tuple(list_tuple)
 
 
+################################################################################################
 
-			
+# tahle trida se zabiva jestli odpovida to co bylo 	
 class TestModule:
 	def __init__ ( self ):
 		self.policka = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
@@ -97,6 +109,7 @@ class TestModule:
 
 	# tiskne vstup a vystup z testu v pripade chyby
 	def print_error_msg ( self ): # tiskne puvodni a predany
+		print ( "#"*40 )		
 		string = "Puvodni:__________\n"
 		for i in range ( 0 , 16 ):
 			if i % 4 == 0:
@@ -128,32 +141,33 @@ class TestModule:
 	# vraci MyError jestli se nezmenili 2
 	def get_dismatch_indexes ( self , predany_tuple ):
 		ret_val = tuple()
-		for index in range( 0 , 15 ):
+		for index in range( 0 , 16 ):
 			if self.policka[index] != predany_tuple[index]:
 				ret_val += index,
 		if len(ret_val) != 2:
-			raise IOmodule.MyError( "Nesplnuje pozadavky" )
-		return ret_va
+			raise IOmodule.MyError( "CHYBA:\nRozdil neni ve dvou prvcich" )
+		return ret_val
 
 	# kontroluje jestli test dopadl uspesne nebo ne
+	# NEDOKONCENO
 	def check_output ( self ):
 		try:
 			dismatch_tuple = self.get_dismatch_indexes ( self.output[0])
-			print ( "Test probehl uspesne" )
-		except IOmodule.MyError: 
+		except IOmodule.MyError as msg:
+			print ( msg )
 			self.print_error_msg ()
 	
 	# generuje ruzne testy	
 	def Post_test ( self ):
 		for i in range( 0 , 10 ):
 			self.get_random () # prohazeni
+			print ( self.policka )
 			self.rozhrani.process_var_set ( self.policka )
 			self.rozhrani.process_send_command ( "getbest" )
 			self.output = self.rozhrani.preber_od_programu ()
 			self.check_output ()
+		print ( "Testovani zkoncilo" )
 			
-
-	
 		
 program = TestModule()
 program.Post_test ()
