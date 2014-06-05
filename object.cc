@@ -246,6 +246,13 @@ int OBJECT::generate_children_all ( OBJECT data [4] )
 	return offset + 4;	// vrati kolik jich vytvoril ( offset <= 0 )
 }
 
+bool OBJECT::is_sorted ()
+{
+	for ( int x = 0 ; x < CONST::policek ; ++x )
+		if ( usporadani[x] != CONST::spravne_usporadani[x] )
+			return false;
+	return true;
+}
 
 /*****************************************************************************/
 /********************************** DEBUG ************************************/

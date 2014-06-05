@@ -29,8 +29,12 @@ public:
 	// generator uzlu 
 	// vsechny ohodnoti a seradi podle ohodnoceni takze [0].value <<
 	int generate_children_all (OBJECT [4]);	
-	// generuje s nejmensim ohodnocenim	
+	// generuje s nejmensim ohodnocenim jinak vraci NULL
 	OBJECT * generate_best_children (); 
+
+	// vrati true jestli je to serazeno podle CONST::spravne_usporadani
+	bool is_sorted ();
+	
 
 
 	void print_obj ();				// debug fce na print

@@ -1,5 +1,12 @@
 #include "solving_engine.h"
+#include <iostream>
 #include <new>
+
+inline static void copy_children ( const OBJECT * const source,
+					OBJECT * const destination )
+{
+	new ( destination ) OBJECT ( *source );
+}
 
 // je potreba alokovat dostatek pameti
 Engine::Engine ()
@@ -13,20 +20,22 @@ Engine::~Engine ()
 	delete [] array_obj;
 }
 
-void Engine::set_up_and_run ( const char predane [CONST::policek] )
+int Engine::set_up_and_run ( const char predane [CONST::policek] )
 {
 	int max_depth = 499;
 	int depth = 1;
 	int position = 0;
-	OBJECT * returned = NULL;
-
+	OBJECT * returned = nullptr;
+	unsigned int __children_generated = 0;
 
 	for ( ; depth <= max_depth ; ++depth )
 	{
-		array_obj->OBJECT ( predane ); // inicializace prvniho
+		new ( array_obj ) OBJECT ( predane ); // inicializace korene 
 		returned = array_obj; // nastavi se aktualni na koren
+		position = 0;
+		std::cout << depth  << "\t" << __children_generated << std::endl;
 
-		while ( 1 )
+		while ( position >= 0 )
 		{
 			while ( position < depth ) // omezeni na hloubku
 			{
@@ -34,28 +43,39 @@ void Engine::set_up_and_run ( const char predane [CONST::policek] )
 				// predpoklada se ze zde se nemuze nic stat 
 				++position;
 				copy_children ( returned , array_obj + position );
+				++__children_generated;
 			}
 
-			returned = NULL;
+			if ( array_obj[position].is_sorted () )
+				return predej_vysledek ( position );
 
-			while ( returned == NULL ) // backtracking
+			while ( --position >= 0 ) // backtracking
 			{
-				--position;
 				returned = array_obj[position].generate_best_children ();
-				if ( returned !
-			}
-
-		}
-		
-
-	}
+				if ( returned == nullptr )
+					continue;
+				else
+				{	
+					++position;
+					copy_children ( returned , array_obj + position );
+					++__children_generated;
+					if ( (position == depth) // jestli je na konci 
+						&& array_obj[position].is_sorted () )
+						return predej_vysledek ( position );
+					break;
+				}
+			} 
+			
+		} // 1. while 
+	} // for end 
+	return 0;
 }
 
-inline static void copy_children ( const OBJECT * const restrict source,
-					OBJECT * const restrict destination )
+int Engine::predej_vysledek ( int& position )
 {
-	destination->OBJECT ( *source );
+ 	return position;
 }
+
 
 
 
