@@ -28,9 +28,9 @@ public:
 
 	// generator uzlu 
 	// vsechny ohodnoti a seradi podle ohodnoceni takze [0].value <<
-	int generate_children_all (OBJECT [4]);	
+	//int generate_children_all (OBJECT [4]);	
 	// generuje s nejmensim ohodnocenim jinak vraci NULL
-	OBJECT * generate_best_children (); 
+	//OBJECT * generate_best_children (); 
 
 	// na nasledujici policko v array vygeneruje nejvhodnejsiho potomka
 	// jestli to nelze vrati TRUE

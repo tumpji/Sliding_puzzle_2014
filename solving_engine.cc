@@ -66,16 +66,18 @@ int Engine::set_up_and_run ( const char predane [CONST::policek] )
 				array_obj[position].generate_best_children_next_to ();
 				// predpoklada se ze zde se nemuze nic stat 
 				++position;
-	if ( best_heur_obj.get_heuristic () > array_obj[position].get_heuristic() )
+#if 1
+	if ( best_heur_obj.get_heuristic () >= array_obj[position].get_heuristic() )
 		best_heur_obj = array_obj[position];
-
+				++__children_generated;
+#endif
 				if ( array_obj[position].is_sorted () )
 					return predej_vysledek ( array_obj, position );
-				++__children_generated;
-				if ( __children_generated  )
-					best_heur_obj.print_obj ();
+//				if ( __children_generated  )
+//					best_heur_obj.print_obj ();
 			}
 
+#if 0
 		static int uz_byl = 0;
 			if ( uz_byl )
 				{ 
@@ -83,22 +85,26 @@ int Engine::set_up_and_run ( const char predane [CONST::policek] )
 					std::cout << array_obj[position].get_heuristic () << std::endl;
 					--uz_byl; 
 				}
-
+#endif
 			while ( --position >= 0 ) // backtracking jen do korene
 			{
 				if ( array_obj[position].generate_best_children_next_to () )
 					continue;
-				else if ( position + array_obj[++position].get_heuristic() < depth_heur )
+				else if ( position + array_obj[1+position].get_heuristic() < depth_heur )
 				{	
+					++position;
+#if 1
 					++__children_generated;
-	if ( best_heur_obj.get_heuristic () > array_obj[position].get_heuristic() )
+	if ( best_heur_obj.get_heuristic () >= array_obj[position].get_heuristic() )
 		best_heur_obj = array_obj[position];
-				if ( __children_generated  )
-					best_heur_obj.print_obj ();
+//				if ( __children_generated  )
+//					best_heur_obj.print_obj ();
+#endif
 					if ( array_obj[position].is_sorted () )
 						return predej_vysledek ( array_obj, position );
 					break;
 				}
+	
 			} 
 			
 		} // 1. while 
