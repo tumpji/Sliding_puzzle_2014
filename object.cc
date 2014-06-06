@@ -1,6 +1,7 @@
 #include <cassert>
 #include <iostream>
 #include <climits>
+#include <new>
 #include "object.h"	
 
 
@@ -63,7 +64,7 @@ inline static int get_whitespace_pos ( const char * const usporadani )
 	int void_position = 0;
 
 	for (; void_position < CONST::policek; ++void_position ) // prochazi vsechno
-		if ( usporadani[void_position] == CONST::policek ) // prazdne misto ?
+		if ( usporadani[void_position] == 0 ) // prazdne misto ?
 			return void_position;
 
 	assert ( !"Nenasel jsem bily znak\n" );
@@ -79,27 +80,6 @@ OBJECT::OBJECT ( )
 	value = 0; // v pripada chyby se obj.
 }
 
-// prevede pole typu char na objekt OBJECT
-// dale inicializuje promennou value & children
-//
-OBJECT::OBJECT ( const char predana [ CONST::policek ] )
-{
-	for ( int x = 0; x < CONST::policek ; ++x )
-		usporadani[x] = predana[x]; // kopirovani
-
-	evaluate (); // doplni value
-	inspect_near_elements (); // doplnuje prom. children 
-}
-
-// kopirovaci konstruktor
-OBJECT::OBJECT ( const OBJECT & objekt )
-{
-	for ( int x = 0 ; x < CONST::policek ; ++x ) // kopiruje usporadani
-		usporadani[x] = objekt.usporadani[x];
-
-	value = objekt.value; 		// kopiruje ohodnoceni
-	children = objekt.children;	// kopiruje rozmnozovani
-}
 
 OBJECT::~OBJECT () 
 {
@@ -119,13 +99,11 @@ void OBJECT::inspect_near_elements ()
 	if ( void_position/4 == 3 ) children |= 0x88; // dolu
 }
 
-
 /*   ma za ukol ohodnotit stav dle heuristiky */
 void OBJECT::evaluate ( ) 
 {
 	int evaluate_v1 = 0; // jak daleko jsou ti co jsou mimo vzdaleni od cile
-	int evaluate_v2 = 0; // kolik jich je mimo
-	int temp;
+	int temp = 0;
 
 	for ( int x = 0; x < CONST::policek; ++x )
 	{
@@ -133,17 +111,15 @@ void OBJECT::evaluate ( )
 			continue;
 		else
 		{
-			++evaluate_v2; // heuristika n1
-
 			// vypocet souradnice x
-			temp = ( x + 1 )%CONST::sloupcu - ( usporadani[x]  )%CONST::sloupcu; 
+			temp = x%CONST::sloupcu - usporadani[x]%CONST::sloupcu; 
 			if ( temp >= 0 )
 				evaluate_v1 += temp;
 			else
 				evaluate_v1 -= temp;
 
 			// vypocet souradnice y
-			temp = x/CONST::radku - ( usporadani[x] - 1 )/CONST::radku;
+			temp = x/CONST::radku -  usporadani[x]/CONST::radku;
 			if ( temp >= 0 )
 				evaluate_v1 += temp;
 			else
@@ -152,7 +128,7 @@ void OBJECT::evaluate ( )
 	}
 
 	// nejhorsi se zapocitava
-	value = ( evaluate_v1 >= evaluate_v2 )?( evaluate_v1 ):( evaluate_v2 );
+	value = evaluate_v1;
 	return;
 }
 
@@ -246,13 +222,159 @@ int OBJECT::generate_children_all ( OBJECT data [4] )
 	return offset + 4;	// vrati kolik jich vytvoril ( offset <= 0 )
 }
 
-bool OBJECT::is_sorted ()
+
+// optimalizovany konstruktor 
+// kopiruje usporadani a nastavuje jiz predtim vypocitanou hodnotu heuristiky
+// podle smeru predchoziho pohybu cislo od 0-3 vc. leva,prava,nahoru,dolu ( mezera )
+// nastavi children
+OBJECT::OBJECT (const OBJECT& polokopie , const int next_value , 
+		const short smer_predchoziho_pohybu, const int whitespace_index )
 {
 	for ( int x = 0 ; x < CONST::policek ; ++x )
-		if ( usporadani[x] != CONST::spravne_usporadani[x] )
-			return false;
-	return true;
+		usporadani[x] = polokopie.usporadani[x];
+
+	switch ( smer_predchoziho_pohybu )
+	{
+		case 0: // doleva
+			swap ( 	usporadani[ whitespace_index     ] , 
+			 	usporadani[ whitespace_index - 1 ] );
+			break;
+		case 1: // doprava
+			swap ( 	usporadani[ whitespace_index     ] , 
+			 	usporadani[ whitespace_index + 1 ] );
+			break;
+		case 2: // nahoru 
+			swap ( 	usporadani[ whitespace_index     ] , 
+			 	usporadani[ whitespace_index - 4 ] );
+			break;
+		case 3: // dolu
+			swap ( 	usporadani[ whitespace_index     ] , 
+			 	usporadani[ whitespace_index + 4 ] );
+			break;
+	}
+
+	value = next_value;
+	inspect_near_elements (); // vynuluje children a zaplni je 	
+	children |= 0x10 << smer_predchoziho_pohybu;
 }
+
+
+// generuje ( jestli to jde ) potomka hned pred sebe
+// v pripada uspechu vraci false  chyba  === true
+// optimalizovana varianta
+bool OBJECT::generate_best_children_next_to ( )
+{
+	const int whitespace_index = get_whitespace_pos ( usporadani );
+	if ( !( ~children % 0xf0 ) )
+		return true; // neni kam pohnout 
+	short smer_pohybu;
+	int next_obj_value = get_hint ( *this , whitespace_index , smer_pohybu  );
+	
+	new ( this + 1 ) OBJECT ( *this , next_obj_value , smer_pohybu, whitespace_index ); // kopie sebe sama pred sebe xD ano je to tak
+	return false; 
+}
+
+// vypocita nejlepsi moznost na posun
+// vrati jeji velikost
+//
+// prebira original a index mezery
+// a cislo, do ktereho ulozi posun:
+// 	0 - vlevo
+// 	1 - vpravo
+// 	2 - nahoru
+// 	3 - dolu
+// 	nekontroluje jestli lze vubec nekam pohnout !
+int OBJECT::get_hint ( const OBJECT& objekt, const int& whitespace_index, short& smer_posunu )
+{
+	int best_solution_value = INT_MAX;
+	int temp;
+	const int& x = whitespace_index;
+
+	if ( !(objekt.children & 0x10) ) // je povolen posun doleva
+	{
+		temp = objekt.value + 1;// ohodnoceni org. 
+					//  +1 protoze posouvame 0 do leva a ona chce byt v pravo
+					//
+		// [ x - 1 ] prvek doleva od mezery
+		// (usporadani[x-1]%4 = do ktereho sloupce chce cislovano ( 0 , 1 , 2 , 3 )
+		// whitespace_index % 4 = do ktereho sloupce zapadne
+		if ( ( usporadani[x - 1] - 1 )%4 >= whitespace_index%4 )
+			--temp;
+		else
+			++temp;
+		// neni potreba zkoumat radky protoze ty se nepohnou
+
+		best_solution_value = temp; // neni potreba podminka protoze je to prvni
+		smer_posunu = 0; // 0 = posun vlevo
+	}
+
+	if ( !(objekt.children & 0x20) ) // je povolen posun doprava
+	{
+		temp = objekt.value - 1;// ohodnoceni org. 
+					//  -1 protoze posouvame 0 do doprava a ona chce byt v pravo
+					//
+		// [ x + 1 ] prvek napravo od mezery
+		// (usporadani[x+1]%4 = do ktereho sloupce chce cislovano ( 0 , 1 , 2 , 3 )
+		// whitespace_index % 4 = do ktereho sloupce zapadne
+		if ( ( usporadani[x + 1] - 1 )%4 <= whitespace_index%4 )
+			--temp;
+		else
+			++temp;
+		// neni potreba zkoumat radky protoze ty se nepohnou
+
+		if ( best_solution_value > temp )
+		{
+			best_solution_value = temp; 
+			smer_posunu = 1; // 0 = posun vpravo 
+		}
+	}
+
+	if ( !(objekt.children & 0x40) ) // je povolen posun nahoru 
+	{
+		temp = objekt.value + 1;// ohodnoceni org. 
+					//  +1 protoze posouvame 0 do nahoru a ona chce byt v dole
+					//
+		// [ x - 4 ] prvek nahore od mezery
+		// (usporadani[x-4]%4 = do ktereho radku chce cislovano ( 0 , 1 , 2 , 3 )
+		// whitespace_index / 4 = do ktereho radku zapadne
+		if ( ( usporadani[x - 4] - 1 )/4 >= whitespace_index/4 )
+			--temp;
+		else
+			++temp;
+		// neni potreba zkoumat radky protoze ty se nepohnou
+
+		if ( best_solution_value > temp )
+		{
+			best_solution_value = temp; 
+			smer_posunu = 2; // 0 = posun vpravo 
+		}
+	}
+		
+	if ( !(objekt.children & 0x80) ) // je povolen posun dolu
+	{
+		temp = objekt.value - 1;// ohodnoceni org. 
+					//  -1 protoze posouvame 0 do dolu a ona chce byt v dole
+					//
+		// [ x + 4 ] prvek dole od mezery
+		// (usporadani[x-4]%4 = do ktereho radku chce cislovano ( 0 , 1 , 2 , 3 )
+		// whitespace_index / 4 = do ktereho radku zapadne
+		if ( ( usporadani[x + 4] - 1 )/4 <= whitespace_index/4 )
+			--temp;
+		else
+			++temp;
+		// neni potreba zkoumat radky protoze ty se nepohnou
+
+		if ( best_solution_value > temp )
+		{
+			best_solution_value = temp; 
+			smer_posunu = 3; // 0 = posun vpravo 
+		}
+	}
+
+	// vime co bude
+	return best_solution_value; // odevzdavame kolik bude value
+}
+
 
 /*****************************************************************************/
 /********************************** DEBUG ************************************/
@@ -264,6 +386,7 @@ void OBJECT::print_obj ( )
 		  <<	"children:\t" << (int)children << "\t" 
 		  <<	*to_binary ( children ) << "\n"
 		  <<	"value:\t" << value << std::endl;
+//<< std::endl;
 
 	for ( int radek = 0 ; radek < CONST::radku ; ++radek )
 	{
@@ -292,6 +415,7 @@ void OBJECT::print_obj_parser ( )
 	std::cout << ")" ;
 		
 }
+
 
 
 

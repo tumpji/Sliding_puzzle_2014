@@ -3,4 +3,6 @@
 *.pyc
 *.run
 *__pycache__*
+*.txt
+*.out
 
