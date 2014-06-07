@@ -1,8 +1,8 @@
 PREKLADAC= 	g++ -pipe -Wextra -Werror -pedantic -std=c++11
-#PARAMS= 	-g3  -ggdb #-Og#debug
+PARAMS= 	-g3  -ggdb #-Og#debug
 #PARAMS= 	-g3 -ggdb -fprofile-arcs -ftest-coverage   #debug
 #PARAMS= 	-pg -O3 -mtune=native -m64 -DNDEBUG  #release
-PARAMS= 	-O3 -mtune=native -m64 -DNDEBUG  #release
+#PARAMS= 	-O3 -mtune=native -m64 -DNDEBUG  #release
 
 
 

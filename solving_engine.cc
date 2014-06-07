@@ -1,13 +1,8 @@
 #include "solving_engine.h"
+#include <cassert>
 #include <iostream>
 #include <new>
-
-inline static void copy_children ( const OBJECT * const source,
-					OBJECT * const destination )
-{
-	new ( destination ) OBJECT ( *source );
-}
-
+#include <set>
 
 static bool zkontroluj_vstup ( const char predane [ CONST::policek ] )
 {
@@ -42,10 +37,12 @@ int Engine::set_up_and_run ( const char predane [CONST::policek] )
 	int depth_heur = 1;
 	int position = 0;
 	unsigned int __children_generated = 0;
+	std::set<OBJECT> zasobnik_pouzivanych;
+	
 	
 	if ( !zkontroluj_vstup ( predane ) )
 		return 0;
-	OBJECT best_heur_obj ( predane );
+//	OBJECT best_heur_obj ( predane );
 
 	new ( array_obj ) OBJECT ( predane ); // inicializace korene 
 	depth_heur = array_obj->get_heuristic(); // puvodni hloubka prohledavani
@@ -55,8 +52,10 @@ int Engine::set_up_and_run ( const char predane [CONST::policek] )
 		new ( array_obj ) OBJECT ( predane ); // inicializace korene 
 		position = 0;
 		std::cout << depth_heur  << "\t" << __children_generated << std::endl;
+		assert ( zasobnik_pouzivanych.size ()  <= 1 );
+		zasobnik_pouzivanych.insert ( *array_obj );
 
-	best_heur_obj.print_obj();
+//	best_heur_obj.print_obj();
 
 		while ( position >= 0 )
 		{
@@ -66,12 +65,18 @@ int Engine::set_up_and_run ( const char predane [CONST::policek] )
 				array_obj[position].generate_best_children_next_to ();
 				// predpoklada se ze zde se nemuze nic stat 
 				++position;
-#if 1
+				if ( !zasobnik_pouzivanych.insert( array_obj[position] ).second )
+					break;
+
+//				for ( int pos = 0 ; pos < position - 1 ; ++pos )
+//					if ( array_obj[pos] == array_obj[position] )
+//						break;
+#if 0
 	if ( best_heur_obj.get_heuristic () >= array_obj[position].get_heuristic() )
 		best_heur_obj = array_obj[position];
 				++__children_generated;
 #endif
-				if ( array_obj[position].is_sorted () )
+				if ( array_obj[position].is_sorted () ) // je to cilovy obrazec ?
 					return predej_vysledek ( array_obj, position );
 //				if ( __children_generated  )
 //					best_heur_obj.print_obj ();
@@ -88,19 +93,28 @@ int Engine::set_up_and_run ( const char predane [CONST::policek] )
 #endif
 			while ( --position >= 0 ) // backtracking jen do korene
 			{
+				zasobnik_pouzivanych.erase ( array_obj[position+1] );
 				if ( array_obj[position].generate_best_children_next_to () )
 					continue;
 				else if ( position + array_obj[1+position].get_heuristic() < depth_heur )
 				{	
 					++position;
-#if 1
-					++__children_generated;
+
+					if ( !zasobnik_pouzivanych.insert( array_obj[position] ).second )
+						continue;
+				
+//					for ( int pos = 0 ; pos < position - 1 ; ++pos ) // kdyz se najde v seznamu
+//						if ( array_obj[pos] == array_obj[position] )
+//							continue;	
+				++__children_generated;
+#if 0
+					
 	if ( best_heur_obj.get_heuristic () >= array_obj[position].get_heuristic() )
 		best_heur_obj = array_obj[position];
 //				if ( __children_generated  )
 //					best_heur_obj.print_obj ();
 #endif
-					if ( array_obj[position].is_sorted () )
+					if ( array_obj[position].is_sorted () ) // je to cilovy obrazec ?
 						return predej_vysledek ( array_obj, position );
 					break;
 				}
@@ -124,6 +138,7 @@ int Engine::predej_vysledek ( OBJECT* start, int& position )
 	
  	return position;
 }
+
 
 
 

@@ -39,13 +39,18 @@ template< class T >
 inline static const char (*to_binary ( T cislo ))[ sizeof(T)*8 + 1]
 {
 	static char data [ sizeof(T)*8 + 1 ];
+	static char data_rev [ sizeof(T)*8 + 1];
 
 	for ( int x = 0; x < sizeof(T)*8; ++x, cislo>>=1)
 		if ( cislo & 1 )
 			data[x] = '1';
 		else
 			data[x] = '0';
-	return &data;
+
+	for ( int x = 0 ; x < sizeof(T)*8; ++x )
+		data_rev[x] = data[sizeof(T)*8 - x - 1];
+
+	return &data_rev;
 } 
 
 // prehodi 2 hodnoty
@@ -75,6 +80,7 @@ static bool check_array_policek ( const char predane [CONST::policek] )
 	for ( int x = 0 ; x < CONST::policek ; ++x )
 		std::cout << (int)predane[x] << ", ";
 	std::cout << std::endl;
+	return false;
 }
 
 
@@ -106,7 +112,7 @@ inline static int get_whitespace_pos ( const char * const usporadani )
 			return void_position;
 
 	assert ( !"Nenasel jsem bily znak\n" );
-	exit( 1 );
+	exit( 100 );
 }
 
 
@@ -116,13 +122,17 @@ OBJECT::OBJECT ( )
 		usporadani[x] = 0;
 	children = 0;
 	value = 0; // v pripada chyby se obj.
+	whitespace_pos = -1;
 }
 
-
-OBJECT::~OBJECT () 
+/*
+bool OBJECT::operator== ( const OBJECT&  predany ) const
 {
-}
-
+	for ( int x = 0 ; x < CONST::policek ; ++x )
+		if ( predany.usporadani[x] != usporadani[x] )
+			return false;
+	return true;
+} */
 
 // zkontroluje, jestli lze vytvorit okolni posunuti - vlevo,vpravo...
 void OBJECT::inspect_near_elements ()
@@ -131,14 +141,16 @@ void OBJECT::inspect_near_elements ()
 	
 	// oznaci "1" ty co nelze uz vytvorit 
 	// zaroven jim da flag "jiz vygenerovany"
-	int void_position = get_whitespace_pos ( usporadani );
-	
+	if ( whitespace_pos == -1 )
+		whitespace_pos = get_whitespace_pos ( usporadani );
+	assert ( whitespace_pos == get_whitespace_pos ( usporadani ) );
+	assert ( whitespace_pos >= 0 && whitespace_pos < CONST::policek );
+
 	children = 0;
-	if ( void_position%4 == 0 ) children |= 0x11; // doleva nelze
-	if ( void_position%4 == 3 ) children |= 0x22; // vpravo
-	if ( void_position/4 == 0 ) children |= 0x44; // nahoru
-	if ( void_position/4 == 3 ) children |= 0x88; // dolu
-	assert ( void_position >= 0 && void_position < CONST::policek );
+	if ( whitespace_pos % CONST::sloupcu == 0                  ) children |= 0x11; // doleva nelze
+	if ( whitespace_pos % CONST::sloupcu == CONST::sloupcu - 1 ) children |= 0x22; // vpravo
+	if ( whitespace_pos / CONST::sloupcu == 0                  ) children |= 0x44; // nahoru
+	if ( whitespace_pos / CONST::sloupcu == CONST::radku- 1   ) children |= 0x88; // dolu
 }
 
 /*   ma za ukol ohodnotit stav dle heuristiky */
@@ -163,20 +175,20 @@ void OBJECT::evaluate ( )
 			else
 				evaluate_v1 -= temp;
 
-			std::cout << "x: " << x << "\tusporadani[x] :" << (int)usporadani[x] << "\tTemp : " << temp ;
+			//std::cout << "x: " << x << "\tusporadani[x] :" << (int)usporadani[x] << "\tTemp : " << temp ;
 
 			// vypocet souradnice y
 			if ( usporadani[x] == 0 ) // je to prazdne 
-				temp = x/CONST::radku - 3;
+				temp = x/CONST::sloupcu - 3;
 			else
-				temp = x/CONST::radku -  ( usporadani[x] - 1)/CONST::radku;
+				temp = x/CONST::sloupcu -  ( usporadani[x] - 1)/CONST::sloupcu;
 			if ( temp >= 0 )
 				evaluate_v1 += temp;
 			else
 				evaluate_v1 -= temp;
 
-			std::cout << "\tTemp : " << temp ;
-			std::cout << "\tEval : " << evaluate_v1 << std::endl;
+			//std::cout << "\tTemp : " << temp ;
+			//std::cout << "\tEval : " << evaluate_v1 << std::endl;
 		}
 	}
 
@@ -190,8 +202,9 @@ void OBJECT::evaluate ( )
 // podle smeru predchoziho pohybu cislo od 0-3 vc. leva,prava,nahoru,dolu ( mezera )
 // nastavi children
 OBJECT::OBJECT (const OBJECT& polokopie , const int next_value , 
-		const short smer_predchoziho_pohybu, const int whitespace_index )
+		const short smer_predchoziho_pohybu)
 {
+	const char& whitespace_index = polokopie.whitespace_pos;
 	assert ( next_value >= 0 );
 	assert ( smer_predchoziho_pohybu >= 0 );
 	assert ( smer_predchoziho_pohybu <= 3 );
@@ -208,6 +221,7 @@ OBJECT::OBJECT (const OBJECT& polokopie , const int next_value ,
 			assert ( whitespace_index - 1 >= 0 );
 			swap ( 	usporadani[ whitespace_index     ] , 
 			 	usporadani[ whitespace_index - 1 ] );
+			whitespace_pos = polokopie.whitespace_pos - 1;
 			inspect_near_elements (); 	// vynuluje children a zaplni je children dolni bity
 			children |= 0x20; // byl posunut z prava do leva -> nemuze do prava
 			assert ( usporadani[whitespace_index] >= 0 && usporadani[whitespace_index] < CONST::policek );
@@ -217,31 +231,41 @@ OBJECT::OBJECT (const OBJECT& polokopie , const int next_value ,
 			assert ( whitespace_index + 1 < CONST::policek );
 			swap ( 	usporadani[ whitespace_index     ] , 
 			 	usporadani[ whitespace_index + 1 ] );
+			whitespace_pos = polokopie.whitespace_pos + 1;
 			inspect_near_elements (); 	// vynuluje children a zaplni je children dolni bity
 			children |= 0x10; // podobne ale z leva do prava
 			assert ( usporadani[whitespace_index] >= 0 && usporadani[whitespace_index] < CONST::policek );
 			assert ( usporadani[whitespace_index + 1] >= 0 && usporadani[whitespace_index + 1] < CONST::policek );
 			break;
 		case 2: // nahoru 
-			assert ( whitespace_index - 4 >= 0 );
+			assert ( whitespace_index - CONST::sloupcu >= 0 );
 			swap ( 	usporadani[ whitespace_index     ] , 
-			 	usporadani[ whitespace_index - 4 ] );
+			 	usporadani[ whitespace_index - CONST::sloupcu ] );
+			whitespace_pos = polokopie.whitespace_pos - CONST::sloupcu;
 			inspect_near_elements (); 	// vynuluje children a zaplni je children dolni bity
 			children |= 0x80;
 			assert ( usporadani[whitespace_index] >= 0 && usporadani[whitespace_index] < CONST::policek );
-			assert ( usporadani[whitespace_index - 4] >= 0 && usporadani[whitespace_index - 4] < CONST::policek );
+			assert ( usporadani[whitespace_index - CONST::sloupcu] >= 0 && 
+				 usporadani[whitespace_index - CONST::sloupcu] < CONST::policek );
 			break;
 		case 3: // dolu
-			assert ( whitespace_index + 4 < CONST::policek );
+			assert ( whitespace_index + CONST::sloupcu < CONST::policek );
 			swap ( 	usporadani[ whitespace_index     ] , 
-			 	usporadani[ whitespace_index + 4 ] );
+			 	usporadani[ whitespace_index + CONST::sloupcu ] );
+			whitespace_pos = polokopie.whitespace_pos + CONST::sloupcu;
 			inspect_near_elements (); 	// vynuluje children a zaplni je children dolni bity
 			children |= 0x40;
 			assert ( usporadani[whitespace_index] >= 0 && usporadani[whitespace_index] < CONST::policek );
-			assert ( usporadani[whitespace_index + 4] >= 0 && usporadani[whitespace_index + 4] < CONST::policek );
+			assert ( usporadani[whitespace_index + CONST::sloupcu ] >= 0 && 
+				 usporadani[whitespace_index + CONST::sloupcu ] < CONST::policek );
 			break;
 	}
+
+#ifndef NDEBUG
 	assert ( check_children ( children ) );
+	evaluate ();
+	assert ( value == next_value );
+#endif
 }
 
 
@@ -254,14 +278,17 @@ bool OBJECT::generate_best_children_next_to ( )
 	assert ( check_array_policek ( usporadani ) );
 	assert ( check_children ( children ) ) ;
 
-	const int whitespace_index = get_whitespace_pos ( usporadani );
 	if ( !( ~children & 0xf0 ) )
 		return true; // neni kam pohnout 
+	if ( whitespace_pos == -1 )
+		whitespace_pos = get_whitespace_pos ( usporadani );
+	assert ( whitespace_pos == get_whitespace_pos ( usporadani ) );
+
 	short smer_pohybu;
-	int next_obj_value = get_hint ( *this , whitespace_index , smer_pohybu  );
+	int next_obj_value = get_hint ( smer_pohybu  );
 
 	// kopie sebe sama pred sebe xD ano je to tak
-	new ( this + 1 ) OBJECT ( *this , next_obj_value , smer_pohybu, whitespace_index ); 
+	new ( this + 1 ) OBJECT ( *this , next_obj_value , smer_pohybu ); 
 	
 	this->children |= 0x10 << smer_pohybu; // zamezeni opakovani tohoto tahu
 	return false; 
@@ -277,28 +304,28 @@ bool OBJECT::generate_best_children_next_to ( )
 // 	2 - nahoru
 // 	3 - dolu
 // 	nekontroluje jestli lze vubec nekam pohnout !
-int OBJECT::get_hint ( const OBJECT& objekt, const int& whitespace_index, short& smer_posunu )
+int OBJECT::get_hint ( short& smer_posunu )
 {
-	assert ( objekt.value >= 0 );
-	assert ( check_array_policek(objekt.usporadani) );
-	assert ( ~objekt.children & 0xf0 );
+	assert ( value >= 0 );
+	assert ( check_array_policek(usporadani) );
+	assert ( ~children & 0xf0 );
 	assert ( check_children ( children ) );
-	assert ( whitespace_index >= 0 && whitespace_index < CONST::policek );
+	assert ( whitespace_pos >= 0 && whitespace_pos < CONST::policek );
 
 	int best_solution_value = INT_MAX;
 	int temp;
-	const int& x = whitespace_index;
+	const int& x = whitespace_pos;
 
-	if ( !(objekt.children & 0x10) ) // je povolen posun doleva
+	if ( !(children & 0x10) ) // je povolen posun doleva
 	{
-		temp = objekt.value + 1;// ohodnoceni org. 
+		temp = value + 1;// ohodnoceni org. 
 					//  +1 protoze posouvame 0 do leva a ona chce byt v pravo
 					//
 		// [ x - 1 ] prvek doleva od mezery
 		// (usporadani[x-1]%4 = do ktereho sloupce chce cislovano ( 0 , 1 , 2 , 3 )
-		// whitespace_index % 4 = do ktereho sloupce zapadne
+		// whitespace_pos % 4 = do ktereho sloupce zapadne
 		assert ( x - 1 >= 0 );
-		if ( ( usporadani[x - 1] - 1 )%4 >= whitespace_index%4 )
+		if ( ( usporadani[x - 1] - 1 )%CONST::sloupcu >= whitespace_pos%CONST::sloupcu )
 			--temp;
 		else
 			++temp;
@@ -308,16 +335,16 @@ int OBJECT::get_hint ( const OBJECT& objekt, const int& whitespace_index, short&
 		smer_posunu = 0; // 0 = posun vlevo
 	}
 
-	if ( !(objekt.children & 0x20) ) // je povolen posun doprava
+	if ( !(children & 0x20) ) // je povolen posun doprava
 	{
-		temp = objekt.value - 1;// ohodnoceni org. 
+		temp = value - 1;// ohodnoceni org. 
 					//  -1 protoze posouvame 0 do doprava a ona chce byt v pravo
 					//
 		// [ x + 1 ] prvek napravo od mezery
 		// (usporadani[x+1]%4 = do ktereho sloupce chce cislovano ( 0 , 1 , 2 , 3 )
-		// whitespace_index % 4 = do ktereho sloupce zapadne
+		// whitespace_pos % 4 = do ktereho sloupce zapadne
 		assert ( x + 1 < CONST::policek );
-		if ( ( usporadani[x + 1] - 1 )%4 <= whitespace_index%4 )
+		if ( ( usporadani[x + 1] - 1 )%CONST::sloupcu <= whitespace_pos%CONST::sloupcu )
 			--temp;
 		else
 			++temp;
@@ -330,16 +357,16 @@ int OBJECT::get_hint ( const OBJECT& objekt, const int& whitespace_index, short&
 		}
 	}
 
-	if ( !(objekt.children & 0x40) ) // je povolen posun nahoru 
+	if ( !(children & 0x40) ) // je povolen posun nahoru 
 	{
-		temp = objekt.value + 1;// ohodnoceni org. 
+		temp = value + 1;// ohodnoceni org. 
 					//  +1 protoze posouvame 0 do nahoru a ona chce byt v dole
 					//
 		// [ x - 4 ] prvek nahore od mezery
 		// (usporadani[x-4]%4 = do ktereho radku chce cislovano ( 0 , 1 , 2 , 3 )
-		// whitespace_index / 4 = do ktereho radku zapadne
-		assert ( x - 4 >= 0 );
-		if ( ( usporadani[x - 4] - 1 )/4 >= whitespace_index/4 )
+		// whitespace_pos / 4 = do ktereho radku zapadne
+		assert ( x - CONST::sloupcu >= 0 );
+		if ( ( usporadani[x - CONST::sloupcu] - 1 )/CONST::sloupcu >= whitespace_pos/CONST::sloupcu )
 			--temp;
 		else
 			++temp;
@@ -352,16 +379,16 @@ int OBJECT::get_hint ( const OBJECT& objekt, const int& whitespace_index, short&
 		}
 	}
 		
-	if ( !(objekt.children & 0x80) ) // je povolen posun dolu
+	if ( !(children & 0x80) ) // je povolen posun dolu
 	{
-		temp = objekt.value - 1;// ohodnoceni org. 
+		temp = value - 1;// ohodnoceni org. 
 					//  -1 protoze posouvame 0 do dolu a ona chce byt v dole
 					//
 		// [ x + 4 ] prvek dole od mezery
 		// (usporadani[x-4]%4 = do ktereho radku chce cislovano ( 0 , 1 , 2 , 3 )
-		// whitespace_index / 4 = do ktereho radku zapadne
-		assert ( x + 4 < CONST::policek );
-		if ( ( usporadani[x + 4] - 1 )/4 <= whitespace_index/4 )
+		// whitespace_pos / 4 = do ktereho radku zapadne
+		assert ( x + CONST::sloupcu < CONST::policek );
+		if ( ( usporadani[x + CONST::sloupcu] - 1 )/CONST::sloupcu <= whitespace_pos/CONST::sloupcu )
 			--temp;
 		else
 			++temp;
