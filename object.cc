@@ -411,6 +411,7 @@ int OBJECT::get_hint ( short& smer_posunu )
 /*****************************************************************************/
 /********************************** DEBUG ************************************/
 
+
 // vytiskne informace o OBJEKTU posklada do citelneho poradi
 void OBJECT::print_obj ( )
 {
