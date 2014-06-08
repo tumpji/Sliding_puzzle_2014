@@ -18,8 +18,13 @@ public:
 
 	void screen_capture ();
 	void get_cursor ();
+	
 
 private:
+	void get_approximately_area ();
+	void get_accurately_area ();
+	unsigned long * get_print_screen ();
+
 	Display * display;
 	int screen;
 	Window root;
