@@ -7,3 +7,5 @@
 *.out
 ./zkouska/*
 ./zkouska
+./gprof
+./gprof/*
