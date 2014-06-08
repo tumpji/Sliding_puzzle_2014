@@ -1,8 +1,10 @@
 #include <iostream>
+#include <vector>
 #include <cassert>
 #include <cmath>
 #include <unistd.h> // sleep
 #include "comunication.h"
+#define PRINT(x) std::cout << #x  " " << x << std::endl;
 
 #define ZPRAVA1 "Po stisknuti tlacitka enter prejedte na okno se hrou\n"\
 		"Podrzte nad levim hornim rohem hraciho pole |^^ \n"\
@@ -16,6 +18,9 @@
 		"Potom stisknete enter a odstrante z hraci plochy kurzor"
 
 #define ZPRAVA4 "Volnym polickem prejedte primo do leveho dolniho rohu\n"\
+		"Potom stisknete enter a odstrante z hraci plochy kurzor"
+
+#define ZPRAVA5 "Volnym polickem prejedte primo do leveho horniho rohu\n"\
 		"Potom stisknete enter a odstrante z hraci plochy kurzor"
 
 // ceka na stisknuti klavesy nasledne postupne vypisuje odpocitavani
@@ -62,13 +67,16 @@ unsigned long * Comunication::get_print_screen ()
 // ma za ukol zjistit presne velikosti policek na zaklade uzivatelem zpusobenem posunuti
 void Comunication::get_accurately_area(  )
 {
-	unsigned long * first_picture, * second_picture;
+	unsigned long * first_picture, * second_picture, * third_picture;
 
 	std::cout << ZPRAVA3 << std::endl; counting();
 	first_picture = get_print_screen ( ); // first screen shot
 
 	std::cout << ZPRAVA4 << std::endl; counting();
 	second_picture = get_print_screen ( ); // second screen shot 
+
+	std::cout << ZPRAVA5 << std::endl; counting();
+	third_picture = get_print_screen ( ); // second screen shot 
 
 /* nejprve projdu velikosti zacnu na velikosti size/6 a postupne az na size/4 vice nemuze policko mit
  * dale budu porovnavat policko 0 z first_picture ( pozice 16 dole v pravo )
@@ -77,8 +85,8 @@ void Comunication::get_accurately_area(  )
 
 	int rozmer_plochy = active_area[1].x - active_area[0].x; // je ctvercova
 	int size = rozmer_plochy/4; // puvocni rozmer jednoho policka
-	int offset_x1, offset_x2 , offset_y1 , offset_y2 ; // offsety od puvodniho ramu
-	int ctverec_1_offset, ctverec_2_offset;
+	int offset_x1, offset_x2 , offset_y1 , offset_y2 , offset_x3 , offset_y3 ; // offsety od puvodniho ramu
+	int ctverec_1_offset, ctverec_2_offset, ctverec_3_offset;
 	bool nasel_se_ctverec = false;
 	
  for (; size >= rozmer_plochy/6; --size )
@@ -94,7 +102,7 @@ void Comunication::get_accurately_area(  )
 					offset_x2;
 		nasel_se_ctverec = true;
 
-		for ( int y = 0 ; y < size && nasel_se_ctverec ; ++y)
+		for ( int y = 0 ; y < size && nasel_se_ctverec ; ++y) // hledani mezi 1 a 2 obr.
 		for ( int x = 0 ; x < size                     ; ++x)
 		{
 			if ( 	first_picture [ctverec_1_offset + x + y*rozmer_plochy] != 
@@ -102,17 +110,49 @@ void Comunication::get_accurately_area(  )
 				{ nasel_se_ctverec = false; break; }
 				
 		}
-		if ( nasel_se_ctverec )
-			goto nasel_jsem_to;
+
+		if ( nasel_se_ctverec ) // jestli je to opravdu on tak bude take tretim obrazku
+		{
+			
+	PRINT(size);
+	PRINT(offset_x1);
+	PRINT(offset_y1);
+	PRINT(offset_x2);
+	PRINT(offset_y2);
+			for ( offset_x3 = 0; offset_x3 < rozmer_plochy/6 ; ++offset_x3 ) // offset
+			for ( offset_y3 = 0; offset_y3 < rozmer_plochy/6 ; ++offset_y3 )
+			{
+				nasel_se_ctverec = true;
+
+				for ( int y = 0 ; y < size && nasel_se_ctverec ; ++y) // hledani mezi 1 a 2 obr.
+				for ( int x = 0 ; x < size                     ; ++x)
+				{
+						ctverec_3_offset = offset_x3 + offset_y3*rozmer_plochy;
+						if ( 	first_picture[ ctverec_1_offset + x + y*rozmer_plochy] !=
+							third_picture[ ctverec_3_offset + x + y*rozmer_plochy]  )
+						{ nasel_se_ctverec = false; break; }
+				}
+				
+			}
+			if ( nasel_se_ctverec == true )
+				goto nasel_jsem_to;
+		}
              }
 
-nasel_jsem_to:
 	if ( !nasel_se_ctverec )
 	{
 		std::cerr << "Ctverec se nepodarilo detekovat\n";
 		exit ( 1 );
 	}
 
+nasel_jsem_to:
+
+	PRINT(size);
+	PRINT(offset_x1);
+	PRINT(offset_y1);
+	PRINT(offset_x2);
+	PRINT(offset_y2);
+	
 	double sum = 0;
 	for ( int y = 0; y < size ; ++y )
 	for ( int x = 0; x < size ; ++x )
