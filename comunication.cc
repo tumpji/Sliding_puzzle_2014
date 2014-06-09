@@ -1,4 +1,5 @@
 #include <iostream>
+#include <sstream>
 #include <fstream>
 #include <vector>
 #include <cassert>
@@ -18,11 +19,10 @@
 		"Podrzte nad pravym dolnim rohem hraciho pole _|\n"\
 		"Budete mit 4s na splneni"
 
-#define ZPRAVA3 "Nejprve volnym polem prejedte dolni pravy roh hraci plochy\n"\
+#define ZPRAVA3 "Potrebuji poskladany obrazek...\n"\
+		"Odjedte z hraci plochy misi pric !!\n"\
 		"Potom stisknete enter a odstrante z hraci plochy kurzor"
 
-#define ZPRAVA4 "Prejdete na hlavni obrazovku - kde jsou poskladany vsechny v poradi\n"\
-		"jak spravne patri. Potom stisknete enter a odsunte mis"
 
 // ceka na stisknuti klavesy nasledne postupne vypisuje odpocitavani
 static void counting ();
@@ -48,13 +48,14 @@ Comunication::~Comunication ()
 	obrazy_poli.clear(); 
 }
 
-static void save_to_ppm3 ( unsigned long * data , int row )
+static void save_to_ppm3 ( unsigned long * data , int row , unsigned file_num )
 {
-
 	std::ofstream ofs;
-	ofs.open ( "obr.ppm" , std::ofstream::out | std::ofstream::trunc );
+	std::ostringstream convert; convert << file_num; // convertion to number
+	convert << ".ppm";
+	
+	ofs.open ( convert.str() , std::ofstream::out | std::ofstream::trunc );
 	int size = row*row ;
-
 	ofs << "P3\n" << row << " " << row << "\n" << "255\n";
 
 	for ( int x = 0 ; x < size ; ++x )
@@ -65,25 +66,27 @@ static void save_to_ppm3 ( unsigned long * data , int row )
 	}
 
 	ofs.close();
-	
 }
 
 // funkce ma za ukol vzit obrazky jiz serazeneho hraciho pole a 
 // zaradit je do vektoru obrazy_poli
 void Comunication::get_user_indexes ()
 {
-	std::cout << ZPRAVA4 << std::endl;
 	unsigned long * buffer;
 	int rozmer = (active_area[1].x - active_area[0].x ) / ROZMER - 2;
+	std::vector<unsigned long*> zasobnik =  get_slices_screen ();
+	//obrazy_poli.push_back( *zasobnik.rend() ); 
+	//obrazy_poli.assign( zasobnik.begin()  , zasobnik.end() - 1);
+	obrazy_poli = zasobnik;
+	obrazy_poli.erase ( zasobnik.begin() , zasobnik.begin() + 1 );
 	
-	obrazy_poli = get_slices_screen ();
-	
+#if 0	
 	for ( unsigned int x = 0 ; x < obrazy_poli.size() ; ++x )
 	{
-		std::cin.get();
-		PRINT( x );
-		save_to_ppm3 ( obrazy_poli[x] , rozmer );
+		save_to_ppm3 ( obrazy_poli[x] , rozmer , x );
 	}
+#endif
+
 }
 
 // funkce ma za ukol sejmou obrazovku a rozclenit ji na dilky
@@ -119,6 +122,7 @@ std::vector<unsigned long*> Comunication::get_slices_screen ( )
 		int x_pos = pozice_vstupy%ROZMER; // rozhoduje o coll a row v 
 		int y_pos = pozice_vstupy/ROZMER; // tabulce podle ROZMER
 		unsigned long * output_buff = zasobnik[pozice_vstupy];
+		
 		
 		for ( int y = 1; y < size/ROZMER - 1; ++y )
 		for ( int x = 1; x < size/ROZMER - 1; ++x )
@@ -172,11 +176,48 @@ const char * Comunication::preber_usporadani ()
 	static char return_val [ ROZMER*ROZMER ];
 	assert ( obrazy_poli.size() );
 	std::vector<unsigned long*> current = get_slices_screen ();
-	
+	unsigned int rozmer = (active_area[1].x - active_area[0].x)/ROZMER - 2;
 
-	// referencni data jsou v obrazy_poli
+	unsigned long * actual = NULL;
+	unsigned long * porovn = NULL;
+	bool sedi = false;
+	// referencni data jsou v obrazy_poli 
+	for ( unsigned x = 0 ; x < current.size() ; ++x )
+	{ // tetnto
+		actual = current[x]; // prebere pamet
+	//******************************************************************************	
 
 
+		save_to_ppm3 ( actual  , rozmer, x );
+
+		for ( unsigned y = 0 ; y < obrazy_poli.size() ; ++y )
+		{ // prochazi v poznamenanych tvarech
+			porovn = obrazy_poli[y];
+			sedi = true;
+			for ( unsigned pixel_pos = 0; pixel_pos < rozmer * rozmer ; ++pixel_pos )
+			{ // prochazi pixely
+				if ( actual[pixel_pos] != porovn[pixel_pos] )
+				{
+					sedi = false;
+					break;
+				}
+			}
+			if ( sedi == true )
+			{
+				return_val[x] = y;
+				break;
+			}
+				
+		} // prochazi org. obrazy == slozene
+		if ( sedi == false ) // nenasel se 
+		{
+			for ( unsigned long * pam : current )
+			{ assert( pam ); free( pam ); }
+
+			current.clear();
+			return nullptr;
+		}
+	}
 
 
 	for ( unsigned long * pam : current )
@@ -256,7 +297,8 @@ void Comunication::get_approximately_area ( )
 
 }
 
-// ma za ukol zjistit presne velikosti policek na zaklade uzivatelem zpusobenem posunuti
+// ma za ukol zjistit presne velikosti policek 
+// na zaklade boarderu ktery se vyskytuje na hornim okraji pole
 void Comunication::get_accurately_area(  )
 {
 	unsigned long * first_picture, * second_picture, * third_picture;
