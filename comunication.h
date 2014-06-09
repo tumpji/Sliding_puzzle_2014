@@ -1,4 +1,5 @@
 #include <X11/Xlib.h>
+#include <vector>
 
 class COORDINATES
 {
@@ -24,6 +25,7 @@ private:
 	void get_approximately_area ();
 	void get_accurately_area ();
 	unsigned long * get_print_screen ();
+	void get_user_indexes ();
 
 	Display * display;
 	int screen;
@@ -32,5 +34,7 @@ private:
 
 	// [0] left top , [1] down bottom , game_area
 	COORDINATES active_area[2];
+
+	std::vector<unsigned long *> obrazy_poli;
 };
 
