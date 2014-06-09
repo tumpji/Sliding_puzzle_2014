@@ -41,8 +41,16 @@ Comunication::Comunication ()
 	get_user_indexes ();
 }
 
+Comunication::~Comunication ()
+{
+	for ( unsigned long * mem : obrazy_poli )
+	{ assert ( mem ); free(mem ); }
+	obrazy_poli.clear(); 
+}
+
 static void save_to_ppm3 ( unsigned long * data , int row )
 {
+
 	std::ofstream ofs;
 	ofs.open ( "obr.ppm" , std::ofstream::out | std::ofstream::trunc );
 	int size = row*row ;
@@ -60,50 +68,57 @@ static void save_to_ppm3 ( unsigned long * data , int row )
 	
 }
 
+// funkce ma za ukol vzit obrazky jiz serazeneho hraciho pole a 
+// zaradit je do vektoru obrazy_poli
 void Comunication::get_user_indexes ()
 {
-	int vstupy [  ROZMER * ROZMER ] = { 0 };
 	std::cout << ZPRAVA4 << std::endl;
-	int cislo;
 	unsigned long * buffer;
 	int rozmer = (active_area[1].x - active_area[0].x ) / ROZMER - 2;
 	
+	obrazy_poli = get_slices_screen ();
+	
+	for ( unsigned int x = 0 ; x < obrazy_poli.size() ; ++x )
+	{
+		std::cin.get();
+		PRINT( x );
+		save_to_ppm3 ( obrazy_poli[x] , rozmer );
+	}
+}
+
+// funkce ma za ukol sejmou obrazovku a rozclenit ji na dilky
+// ROZMER ROZMER z techto dilku jeste odstrani 1px z kazde strany
+// alokuje pamet malloc a vlozi vysledne rozcleneni do teto pameti
+// vraci vektor s ukazately na tyto bitmapy
+std::vector<unsigned long*> Comunication::get_slices_screen ( )
+{
+	std::vector< unsigned long * > zasobnik;
+	unsigned long * buffer = NULL;
+	int rozmer = (active_area[1].x - active_area[0].x ) / ROZMER - 2;
+	int size = active_area[1].x - active_area[0].x; // radek ( bez hranic )
+
 	for ( int x = 0; x < ROZMER*ROZMER ; ++x ) // alokace pameti
 	{
 		buffer = (unsigned long *)malloc( sizeof(long)*rozmer*rozmer );
 		if ( buffer == nullptr )
 		{ 	
 			std::cerr << "Nedostatek pameti !\n" ; 
-			for ( unsigned long * t : obrazy_poli ) 
-			{ free( t ); }  
+			for ( unsigned long * t : zasobnik ) 
+				{ free( t ); }  
 			exit(1);
 		}
-		obrazy_poli.push_back( buffer ); // ukazatele na pamet
+		zasobnik.push_back( buffer ); // ukazatele na pamet
 	}
-
-#if 1
-	for ( int x = 0 ; x < ROZMER * ROZMER ; ++x )
-		vstupy[x] = x;
-#else
-	std::cin.clear();
-	for ( int x = 0 ; x < ROZMER*ROZMER ; ++x )
-	{
-		std::cin >> cislo ;
-		vstupy[x] = cislo;
-	}
-#endif
-	
 
 	buffer = get_print_screen ( ); // vezme obrazek
 
 	// zapisovani dat do struktury
 	
-	int size = active_area[1].x - active_area[0].x; // radek ( bez hranic )
 	for ( int pozice_vstupy = 0 ; pozice_vstupy < ROZMER*ROZMER; ++pozice_vstupy )
 	{
 		int x_pos = pozice_vstupy%ROZMER; // rozhoduje o coll a row v 
 		int y_pos = pozice_vstupy/ROZMER; // tabulce podle ROZMER
-		unsigned long * output_buff = obrazy_poli[vstupy[pozice_vstupy] ];
+		unsigned long * output_buff = zasobnik[pozice_vstupy];
 		
 		for ( int y = 1; y < size/ROZMER - 1; ++y )
 		for ( int x = 1; x < size/ROZMER - 1; ++x )
@@ -111,18 +126,18 @@ void Comunication::get_user_indexes ()
 			// od zacatku bez hranic 1px po obou stranach = -2
 			assert((unsigned long) (x - 1 + ( y - 1)*( size / ROZMER - 2 )) < 
 				(sizeof(long) *rozmer*rozmer) );
-			output_buff[ x - 1 + ( y - 1)*( size / ROZMER - 2 ) ] =
+			assert((x_pos * size/ROZMER + y_pos * size * size / ROZMER +
+					x + y * size ) < size*size );
+
+			output_buff[ x - 1 + ( y - 1)*rozmer ] =
 				buffer[ x_pos * size/ROZMER + 
 					y_pos * size * size / ROZMER +
-					x + y * size ];
+					x + y * size ]; // pohyb ve ctverci
 		}
-
-		save_to_ppm3 ( output_buff , ( size/ROZMER - 2) );
-		std::cout << "Saved to ppm...\n";
-		std::cin.get();
 	}
 
-	
+	free(buffer);
+	return zasobnik;
 }
 
 // vytiskne podle toho co je ulozeno v active_area[x].{x}
@@ -152,15 +167,25 @@ unsigned long * Comunication::get_print_screen ()
 }
 
 
-void Comunication::screen_capture ()
+const char * Comunication::preber_usporadani ()
 {
+	static char return_val [ ROZMER*ROZMER ];
+	assert ( obrazy_poli.size() );
+	std::vector<unsigned long*> current = get_slices_screen ();
+	
+
+	// referencni data jsou v obrazy_poli
+
+
+
+
+	for ( unsigned long * pam : current )
+	{ assert( pam ); free( pam ); }
+	current.clear();
+
+	return return_val;
 }
 
-void Comunication::get_cursor ( )
-{
-	// vsechny mozne soradnice co varaci xquerypointer
-	return ;
-}
 
 // upravy rozmery souradnic obrazku
 static bool check_and_modify ( COORDINATES* active_area )
@@ -257,14 +282,8 @@ void Comunication::get_accurately_area(  )
 				active_area[1].x -= rozmery_plochy - x + 1;
 				active_area[0].x += x - in_row + 1; // vc. b. 
 				active_area[0].y += y + 1; // vc. b.
-				active_area[1].y -= active_area[1].y - active_area[0].y - ( active_area[1].x - active_area[0].x ); 
-				PRINT( in_row );
-				PRINT ( x );
-				PRINT ( y );
-				PRINT( active_area[0].x );
-				PRINT( active_area[0].y );
-				PRINT( active_area[1].x );
-				PRINT( active_area[1].y );
+				active_area[1].y -= 	active_area[1].y - active_area[0].y - 
+							( active_area[1].x - active_area[0].x ); 
 				goto unik;
 			}
 

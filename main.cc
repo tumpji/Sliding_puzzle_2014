@@ -13,7 +13,8 @@ int main ( void )
 	//solving_engine.set_up_and_run ( zk );
 	
 	Comunication rozhrani;
-	rozhrani.screen_capture ();
+	rozhrani.preber_usporadani();
+	//rozhrani.screen_capture ();
 	//rozhrani.get_cursor ();
 
 	return 0;

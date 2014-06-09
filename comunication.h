@@ -14,19 +14,24 @@ public:
 class Comunication
 {
 public:
-	// konstruktor preda se udaje jako je pozice od/do
+	// postupna komunikace s uzivatelem
 	Comunication ();
+	~Comunication ();
 
-	void screen_capture ();
-	void get_cursor ();
+	const char * preber_usporadani ();
 	
 
 private:
-	void get_approximately_area ();
-	void get_accurately_area ();
-	unsigned long * get_print_screen ();
+	// od uzivatele prevezme pribliznou polohu
+	void get_approximately_area (); 
+	// od uzivatele prebere posladany obrazek
 	void get_user_indexes ();
+	// vypocet ohraniceni
+	void get_accurately_area ();
+	// vezme obrazek zkoumane oblasti a rozcleni ho na kousky
 	std::vector<unsigned long*> get_slices_screen ( );
+	// vytiskne zkoumanou oblast a ulozi ji do dynamicky all. prom.
+	unsigned long * get_print_screen ();
 
 	Display * display;
 	int screen;
