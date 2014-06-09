@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <vector>
 #include <cassert>
 #include <cmath>
@@ -20,9 +21,8 @@
 #define ZPRAVA3 "Nejprve volnym polem prejedte dolni pravy roh hraci plochy\n"\
 		"Potom stisknete enter a odstrante z hraci plochy kurzor"
 
-#define ZPRAVA4 "Zapiste presne indexy vsech poli jak jsou od leva do prava a \n"\
-		"od vrchu dolu. Prazdne misto oznacte 0."
-
+#define ZPRAVA4 "Prejdete na hlavni obrazovku - kde jsou poskladany vsechny v poradi\n"\
+		"jak spravne patri. Potom stisknete enter a odsunte mis"
 
 // ceka na stisknuti klavesy nasledne postupne vypisuje odpocitavani
 static void counting ();
@@ -36,9 +36,28 @@ Comunication::Comunication ()
 	screen = DefaultScreen ( display ); // obrazovka
 	root = RootWindow ( display , screen ); // nahore
 
-	//get_approximately_area ( ); // dostane od uzivatele oblast hry 
-	//get_accurately_area ( ); // tuhle oblast lepe analizuje
+	get_approximately_area ( ); // dostane od uzivatele oblast hry 
+	get_accurately_area ( ); // tuhle oblast lepe analizuje
 	get_user_indexes ();
+}
+
+static void save_to_ppm3 ( unsigned long * data , int row )
+{
+	std::ofstream ofs;
+	ofs.open ( "obr.ppm" , std::ofstream::out | std::ofstream::trunc );
+	int size = row*row ;
+
+	ofs << "P3\n" << row << " " << row << "\n" << "255\n";
+
+	for ( int x = 0 ; x < size ; ++x )
+	{
+		ofs 	<< (unsigned)(( data[x] >> 16 )&0xff) << " "
+			<< (unsigned)((data[x] >> 8)&0xff) << " "
+			<< (unsigned)(data[x]&0xff)	<< " ";
+	}
+
+	ofs.close();
+	
 }
 
 void Comunication::get_user_indexes ()
@@ -46,55 +65,61 @@ void Comunication::get_user_indexes ()
 	int vstupy [  ROZMER * ROZMER ] = { 0 };
 	std::cout << ZPRAVA4 << std::endl;
 	int cislo;
+	unsigned long * buffer;
+	int rozmer = (active_area[1].x - active_area[0].x ) / ROZMER - 2;
+	
+	for ( int x = 0; x < ROZMER*ROZMER ; ++x ) // alokace pameti
+	{
+		buffer = (unsigned long *)malloc( sizeof(long)*rozmer*rozmer );
+		if ( buffer == nullptr )
+		{ 	
+			std::cerr << "Nedostatek pameti !\n" ; 
+			for ( unsigned long * t : obrazy_poli ) 
+			{ free( t ); }  
+			exit(1);
+		}
+		obrazy_poli.push_back( buffer ); // ukazatele na pamet
+	}
 
+#if 1
+	for ( int x = 0 ; x < ROZMER * ROZMER ; ++x )
+		vstupy[x] = x;
+#else
 	std::cin.clear();
 	for ( int x = 0 ; x < ROZMER*ROZMER ; ++x )
 	{
 		std::cin >> cislo ;
 		vstupy[x] = cislo;
 	}
-	// jak velike budou alokace ?
-	int rozmer = active_area[1].x - active_area[0].x;
-	rozmer /= ROZMER;
-	rozmer -= 2; // hranice 
+#endif
 	
-	unsigned long * buffer;
-	
-	for ( int x = 0; x < ROZMER*ROZMER ; ++x ) // alokace pameti
-	{
-		buffer = (unsigned long *)malloc( rozmer * rozmer );
-		if ( buffer == nullptr )
-		{ 	
-			std::cerr << "Nedostatek pameti !\n" ; 
-			for ( unsigned long * t : obrazy_poli ) { free( t ); }  }
-			exit(1);
-		}
-		obrazy_poli.insert( buffer );
-	}
 
 	buffer = get_print_screen ( ); // vezme obrazek
 
 	// zapisovani dat do struktury
 	
-	int size = active_area[1].x - active_area[0].x;
-	for ( int pozice_vstupy = 0 ; pozice_vstupy < ROZMER*ROZMER ; ++pozice_vstupy )
+	int size = active_area[1].x - active_area[0].x; // radek ( bez hranic )
+	for ( int pozice_vstupy = 0 ; pozice_vstupy < ROZMER*ROZMER; ++pozice_vstupy )
 	{
-		int x_pos = (vstupy[pozice_vstupy] - 1)%ROZMER;
-		int y_pos = (vstupy[pozice_vstupy] - 1)/ROZMER;
-		if ( vstupy[pozice_vstupy] > obrazy_poli.size() ) exit(9);
-		unsigned long * output_buff = obrazy_poli[vstupy[pozice_vstupy] - 1];
-
+		int x_pos = pozice_vstupy%ROZMER; // rozhoduje o coll a row v 
+		int y_pos = pozice_vstupy/ROZMER; // tabulce podle ROZMER
+		unsigned long * output_buff = obrazy_poli[vstupy[pozice_vstupy] ];
+		
 		for ( int y = 1; y < size/ROZMER - 1; ++y )
 		for ( int x = 1; x < size/ROZMER - 1; ++x )
 		{
+			// od zacatku bez hranic 1px po obou stranach = -2
+			assert((unsigned long) (x - 1 + ( y - 1)*( size / ROZMER - 2 )) < 
+				(sizeof(long) *rozmer*rozmer) );
 			output_buff[ x - 1 + ( y - 1)*( size / ROZMER - 2 ) ] =
-				buffer[ x_pos * size/ROZMER + 1 + y_pos * size * size / ROZMER;
-				// tohle je spatne dodelat
+				buffer[ x_pos * size/ROZMER + 
+					y_pos * size * size / ROZMER +
+					x + y * size ];
 		}
-		
-	
-		
-		
+
+		save_to_ppm3 ( output_buff , ( size/ROZMER - 2) );
+		std::cout << "Saved to ppm...\n";
+		std::cin.get();
 	}
 
 	
@@ -220,6 +245,7 @@ void Comunication::get_accurately_area(  )
 	int in_row = 1;
 	// zkoumani usecek horizontalnich - boarders
 	for ( int y = 0 ; y < rozmery_plochy ; ++y )
+	{
 	for ( int x = 0 ; x < rozmery_plochy ; ++x )
 	{
 		if ( last_pix == first_picture[ x + y*rozmery_plochy ] )
@@ -229,21 +255,26 @@ void Comunication::get_accurately_area(  )
 			if ( (float)in_row >= ((float)rozmery_plochy)*3.f/4.f ) // je to vetsi ==>boarder
 			{ // boarder
 				active_area[1].x -= rozmery_plochy - x + 1;
-				active_area[0].x -= x - in_row + 1; // vc. b. 
-				active_area[0].y -= y + 1; // vc. b.
+				active_area[0].x += x - in_row + 1; // vc. b. 
+				active_area[0].y += y + 1; // vc. b.
 				active_area[1].y -= active_area[1].y - active_area[0].y - ( active_area[1].x - active_area[0].x ); 
+				PRINT( in_row );
+				PRINT ( x );
+				PRINT ( y );
 				PRINT( active_area[0].x );
 				PRINT( active_area[0].y );
 				PRINT( active_area[1].x );
 				PRINT( active_area[1].y );
-				break;
+				goto unik;
 			}
 
 			in_row = 1;
 			last_pix = first_picture[ x + y* rozmery_plochy ];
 		}
-		if (  in_row != 1 ) break;
 	}
+		in_row = 0;
+	}
+	unik:
 
 	free( first_picture ); // uprava hranic hohova
 }

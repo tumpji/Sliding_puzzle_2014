@@ -9,3 +9,4 @@
 ./zkouska
 ./gprof
 ./gprof/*
+*.ppm

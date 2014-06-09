@@ -26,6 +26,7 @@ private:
 	void get_accurately_area ();
 	unsigned long * get_print_screen ();
 	void get_user_indexes ();
+	std::vector<unsigned long*> get_slices_screen ( );
 
 	Display * display;
 	int screen;
