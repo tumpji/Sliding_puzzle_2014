@@ -167,7 +167,7 @@ void OBJECT::evaluate ( )
 		{
 			// vypocet souradnice x
 			if ( usporadani[x] == 0 )
-				temp = x%CONST::sloupcu - 3;
+				temp = x%CONST::sloupcu - (CONST::sloupcu - 1);
 			else
 				temp = x%CONST::sloupcu - (usporadani[x] - 1)%CONST::sloupcu; 
 			if ( temp >= 0 )
@@ -179,7 +179,7 @@ void OBJECT::evaluate ( )
 
 			// vypocet souradnice y
 			if ( usporadani[x] == 0 ) // je to prazdne 
-				temp = x/CONST::sloupcu - 3;
+				temp = x/CONST::sloupcu - (CONST::sloupcu - 1);
 			else
 				temp = x/CONST::sloupcu -  ( usporadani[x] - 1)/CONST::sloupcu;
 			if ( temp >= 0 )
