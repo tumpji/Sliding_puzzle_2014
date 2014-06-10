@@ -48,6 +48,24 @@ Comunication::~Comunication ()
 	obrazy_poli.clear(); 
 }
 
+// funkce ma za ukol vzit obrazky jiz serazeneho hraciho pole a 
+// zaradit je do vektoru obrazy_poli - tj vektor pro ukladani referencnich policek
+void Comunication::get_user_indexes ()
+{
+	unsigned long * buffer;
+	int rozmer = (active_area[1].x - active_area[0].x ) / ROZMER - 2;
+	std::vector<unsigned long*> zasobnik =  get_slices_screen ();
+	for ( unsigned x = 0 ; x < zasobnik.size() - 1; ++x )
+		obrazy_poli.push_back( zasobnik[x] );
+
+	if ( *zasobnik.rbegin() )
+		free( *zasobnik.rbegin() );
+}
+
+// debuf fce 
+// prebira unsigned long * data - ukazatel na zacatek obrazku
+// int row - velikost ( uklada pouze ctverce )
+// file_num - identifikator - <file_num>.ppm
 static void save_to_ppm3 ( unsigned long * data , int row , unsigned file_num )
 {
 	std::ofstream ofs;
@@ -68,26 +86,6 @@ static void save_to_ppm3 ( unsigned long * data , int row , unsigned file_num )
 	ofs.close();
 }
 
-// funkce ma za ukol vzit obrazky jiz serazeneho hraciho pole a 
-// zaradit je do vektoru obrazy_poli
-void Comunication::get_user_indexes ()
-{
-	unsigned long * buffer;
-	int rozmer = (active_area[1].x - active_area[0].x ) / ROZMER - 2;
-	std::vector<unsigned long*> zasobnik =  get_slices_screen ();
-	//obrazy_poli.push_back( *zasobnik.rend() ); 
-	//obrazy_poli.assign( zasobnik.begin()  , zasobnik.end() - 1);
-	obrazy_poli = zasobnik;
-	obrazy_poli.erase ( zasobnik.begin() , zasobnik.begin() + 1 );
-	
-#if 0	
-	for ( unsigned int x = 0 ; x < obrazy_poli.size() ; ++x )
-	{
-		save_to_ppm3 ( obrazy_poli[x] , rozmer , x );
-	}
-#endif
-
-}
 
 // funkce ma za ukol sejmou obrazovku a rozclenit ji na dilky
 // ROZMER ROZMER z techto dilku jeste odstrani 1px z kazde strany
@@ -95,7 +93,7 @@ void Comunication::get_user_indexes ()
 // vraci vektor s ukazately na tyto bitmapy
 std::vector<unsigned long*> Comunication::get_slices_screen ( )
 {
-	std::vector< unsigned long * > zasobnik;
+	std::vector< unsigned long * > zasobnik; // sem se uklada
 	unsigned long * buffer = NULL;
 	int rozmer = (active_area[1].x - active_area[0].x ) / ROZMER - 2;
 	int size = active_area[1].x - active_area[0].x; // radek ( bez hranic )
@@ -144,6 +142,7 @@ std::vector<unsigned long*> Comunication::get_slices_screen ( )
 	return zasobnik;
 }
 
+// tvori mezivrstvu mezi Xorg prebere obrazek vyhrazeny v active_area
 // vytiskne podle toho co je ulozeno v active_area[x].{x}
 unsigned long * Comunication::get_print_screen ()
 {
@@ -170,60 +169,60 @@ unsigned long * Comunication::get_print_screen ()
 	return puvodni_mapa;
 }
 
-
+// prebere aktualni rozpolozeni policek z obrazovky
+// vrati serazeny 
 const char * Comunication::preber_usporadani ()
 {
-	static char return_val [ ROZMER*ROZMER ];
 	assert ( obrazy_poli.size() );
+	static char return_val [ ROZMER*ROZMER ];
 	std::vector<unsigned long*> current = get_slices_screen ();
 	unsigned int rozmer = (active_area[1].x - active_area[0].x)/ROZMER - 2;
-
-	unsigned long * actual = NULL;
+	unsigned long * actual = NULL; // 
 	unsigned long * porovn = NULL;
-	bool sedi = false;
-	// referencni data jsou v obrazy_poli 
-	for ( unsigned x = 0 ; x < current.size() ; ++x )
-	{ // tetnto
-		actual = current[x]; // prebere pamet
-	//******************************************************************************	
+	bool nula_detekovana = false;
+	bool chyba_detekovana = false;
 
-
-		save_to_ppm3 ( actual  , rozmer, x );
-
-		for ( unsigned y = 0 ; y < obrazy_poli.size() ; ++y )
-		{ // prochazi v poznamenanych tvarech
+	
+	for ( unsigned x = 0 ; x < current.size() ; ++x ) // iterate crops of screen ( now )
+	{ 
+		actual = current[x]; 
+	
+		for ( unsigned y = 0 ; y < obrazy_poli.size() ; ++y ) // iterate ( reference )
+		{ 
 			porovn = obrazy_poli[y];
-			sedi = true;
+			chyba_detekovana = true;
 			for ( unsigned pixel_pos = 0; pixel_pos < rozmer * rozmer ; ++pixel_pos )
 			{ // prochazi pixely
 				if ( actual[pixel_pos] != porovn[pixel_pos] )
 				{
-					sedi = false;
+					chyba_detekovana = false;
 					break;
 				}
 			}
-			if ( sedi == true )
+			if ( chyba_detekovana == true )
 			{
-				return_val[x] = y;
+				return_val[x] = y + 1;
 				break;
 			}
 				
 		} // prochazi org. obrazy == slozene
-		if ( sedi == false ) // nenasel se 
+		if ( chyba_detekovana == false ) // nenasel se 
 		{
+			if ( nula_detekovana == false )
+			{
+				nula_detekovana = true;
+				return_val[x] = 0;
+				continue;
+			}
+				
 			for ( unsigned long * pam : current )
 			{ assert( pam ); free( pam ); }
-
-			current.clear();
 			return nullptr;
 		}
 	}
 
-
-	for ( unsigned long * pam : current )
+	for ( unsigned long * pam : current ) // uvolni pamet z prebraneho printscreanu
 	{ assert( pam ); free( pam ); }
-	current.clear();
-
 	return return_val;
 }
 
@@ -264,6 +263,8 @@ static bool check_and_modify ( COORDINATES* active_area )
 	return false;
 }
 
+// komunikuje s Xorg a s uzivatelem
+// prebira pracovni plochu
 void Comunication::get_approximately_area ( )
 {
 	int x_root , y_root , relat_x , relat_y ;
@@ -294,7 +295,6 @@ void Comunication::get_approximately_area ( )
 		std::cerr << "Chyba v uzivatelskem vstupu\n";
 		exit (1);
 	}
-
 }
 
 // ma za ukol zjistit presne velikosti policek 

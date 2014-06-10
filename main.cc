@@ -18,14 +18,30 @@ int main ( void )
 	std::cout << "rozhrani.preber_usporadani()" << std::endl;
 	std::cin.get();
 
-	predane = rozhrani.preber_usporadani();
-	if ( predane )
+	while ( 1 )
 	{
-		for( int x = 0; x < 16 ; ++x) 
-			std::cout << (int)(predane[x]) << " " ;
+		predane = rozhrani.preber_usporadani();
+		if ( predane )
+		{
+			for( int y = 0; y < 4 ; ++y) 
+			{
+				for( int x = 0; x < 4 ; ++x) 
+				{
+					std::cout << (int)(predane[x + y*4]) << " " ;
+					if ( predane[x + y*4] < 10 )
+						std::cout << " ";
+				}
+				std::cout << std::endl;
+			}
+		}
+		else
+		{ 
+			std::cout << "Chyba" << std::endl;
+			exit( 1 );
+		}
+
+		std::cin.get();
 	}
-	else 
-		std::cout << "Chyba" << std::endl;
 
 	//rozhrani.screen_capture ();
 	//rozhrani.get_cursor ();
