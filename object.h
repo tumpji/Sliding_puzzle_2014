@@ -1,13 +1,14 @@
 
 namespace CONST 
 {
-	const int radku = 4;
-	const int sloupcu = 4;
+	const int radku = 3;
+	const int sloupcu = 3;
 	const int policek = radku*sloupcu;
 	const int white_space_value = CONST::policek;
 
 	const char spravne_usporadani [CONST::policek] = // cilovy stav policek
-	{ 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,0 };
+	//{ 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,0 };
+	{ 1,2,3,4,5,6,7,8,0 };
 
 	enum { VLEVO = 0x10 , VPRAVO = 0x20 , NAHORU = 0x40, DOLU = 0x80 };
 

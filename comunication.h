@@ -18,10 +18,15 @@ public:
 	Comunication ();
 	~Comunication ();
 
+	// preda aktualni usporadani vyctene na obrazovce 
 	const char * preber_usporadani ();
 	
-
+	// vypocita kam ma kliknout a klikne na policko
+	void click_on_area ( int index );
 private:
+	// pohne s ukazatelem a klikne
+	void click_move ( int x , int y );
+
 	// od uzivatele prevezme pribliznou polohu
 	void get_approximately_area (); 
 	// od uzivatele prebere posladany obrazek
@@ -40,7 +45,6 @@ private:
 
 	// [0] left top , [1] down bottom , game_area
 	COORDINATES active_area[2];
-
 	std::vector<unsigned long *> obrazy_poli;
 };
 

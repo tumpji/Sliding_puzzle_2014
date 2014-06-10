@@ -6,6 +6,8 @@
 #include <cmath>
 #include <unistd.h> // sleep
 #include "comunication.h"
+#include<X11/Xutil.h>
+#include <cstring>
 
 #define PRINT(x) std::cout << #x  " " << x << std::endl;
 
@@ -84,6 +86,79 @@ static void save_to_ppm3 ( unsigned long * data , int row , unsigned file_num )
 	}
 
 	ofs.close();
+}
+
+void Comunication::click_on_area ( int index )
+{
+	int rozmer = (active_area[1].x - active_area[0].x ) / ROZMER ;
+	int x = active_area[0].x;
+	int y = active_area[0].y;
+	x += rozmer/2; // doprostred
+	y += rozmer/2;
+	
+	x += (index%ROZMER)*rozmer;
+	y += (index/ROZMER)*rozmer;
+	
+	click_move( x , y );
+
+}
+
+// presune mis a klikne na misto 
+void Comunication::click_move ( int x  , int y)
+{
+	XEvent event;
+	std::memset(&event, 0x00, sizeof(event));
+
+	if(display == NULL) {
+		std::cerr << "Chyba move_mouse\n";
+		exit(1);
+	}
+	
+	XSelectInput ( display, root, KeyReleaseMask );
+	XWarpPointer ( display, None, root , 0,0,0,0,x,y);
+	XFlush( display );
+	
+	event.type = ButtonPress;
+	event.xbutton.button = Button1;
+	event.xbutton.same_screen = True;
+	
+	XQueryPointer(	display, 
+			RootWindow(display, DefaultScreen(display)), 
+			&event.xbutton.root, 
+			&event.xbutton.window, 
+			&event.xbutton.x_root, 
+			&event.xbutton.y_root, 
+			&event.xbutton.x, 
+			&event.xbutton.y, 
+			&event.xbutton.state);
+	
+	event.xbutton.subwindow = event.xbutton.window;
+	
+	while(event.xbutton.subwindow)
+	{
+		event.xbutton.window = event.xbutton.subwindow;
+		
+		XQueryPointer( 	display, event.xbutton.window, &event.xbutton.root, 
+				&event.xbutton.subwindow, &event.xbutton.x_root, 
+				&event.xbutton.y_root, &event.xbutton.x, 
+				&event.xbutton.y, &event.xbutton.state);
+	}
+	
+	if(XSendEvent(display, PointerWindow, True, 0xfff, &event) == 0) 
+		std::cerr << "XSendEvent error\n";
+	
+	XFlush(display);
+	
+	usleep(100000);
+	
+	event.type = ButtonRelease;
+	event.xbutton.state = 0x100;
+	
+	if(XSendEvent(display, PointerWindow, True, 0xfff, &event) == 0) 
+		std::cerr << "XSendEvent error\n";
+	
+	XFlush(display);
+	XCloseDisplay(display);
 }
 
 
