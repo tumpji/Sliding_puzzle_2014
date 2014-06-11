@@ -11,9 +11,8 @@ public:
 
 	std::vector<std::pair<int,OBJECT>> run ( const unsigned char * ); 
 private:	
-	std::vector<OBJECT> run_ida ( const unsigned char *, unsigned );
+	std::vector<OBJECT> run_ida ( const unsigned char * , unsigned );
 
-	//std::vector<OBJECT> predej_vysledek (  OBJECT * ,  int& );
 
 	// zde se ukladaji vsechny objekty
 	OBJECT * array_obj;	

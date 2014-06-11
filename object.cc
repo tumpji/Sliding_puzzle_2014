@@ -61,8 +61,8 @@ OBJECT::OBJECT ( const unsigned char * data , int size ) : size(size)
 		(this+1)->usporadani[mezera_index + (x) ] )
 bool OBJECT::generate_best_children ()
 {
-	unsigned int best_heuristic_value = 0;
-	unsigned int best_heuristic = (unsigned)-1;
+	unsigned int best_heuristic_value = (unsigned)-1;
+	unsigned int best_heuristic = 0;
 	unsigned int temp;
 	unsigned int mezera_index = vyhledej_nulu ( usporadani );
 	assert ( usporadani[mezera_index] == 0 );
@@ -75,7 +75,7 @@ bool OBJECT::generate_best_children ()
 		// vyhodnot
 		temp = heuristika_na_miru ( (this+1)->usporadani , size );
 
-		if ( temp > best_heuristic_value ) 
+		if ( temp < best_heuristic_value ) 
 		{ // porovnej s ostatnimi
 			best_heuristic_value = temp;
 			best_heuristic = BLOCK_LEFT ;
@@ -89,7 +89,7 @@ bool OBJECT::generate_best_children ()
 		SWAP ( 1 );
 		temp = heuristika_na_miru ( (this+1)->usporadani , size );
 
-		if ( temp > best_heuristic_value )
+		if ( temp < best_heuristic_value )
 		{
 			best_heuristic_value = temp;
 			best_heuristic = BLOCK_RIGHT;
@@ -104,7 +104,7 @@ bool OBJECT::generate_best_children ()
 
 		temp = heuristika_na_miru ( (this+1)->usporadani , size );
 
-		if ( temp > best_heuristic_value )
+		if ( temp < best_heuristic_value )
 		{
 			best_heuristic_value = temp;
 			best_heuristic = BLOCK_UP;
@@ -119,7 +119,7 @@ bool OBJECT::generate_best_children ()
 
 		temp = heuristika_na_miru ( (this+1)->usporadani , size );
 
-		if ( temp > best_heuristic_value )
+		if ( temp < best_heuristic_value )
 		{
 			best_heuristic_value = temp;
 			best_heuristic = BLOCK_DOWN;
@@ -151,7 +151,7 @@ bool OBJECT::generate_best_children ()
 	// setting up flags
 	(this+1)->flags = check_boarders( (this + 1)->usporadani , size );
 	(this+1)->flags |= best_heuristic ; // ! modifikovana pred chvili
-	
+	return false;
 }
 
 

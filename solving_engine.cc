@@ -11,40 +11,50 @@ static bool zkontroluj_vstup ( const unsigned char * predane , unsigned int );
 static std::vector<OBJECT> predej_vysledek ( OBJECT * data , int position );
 
 // implementace IDA*
+
+#if 0
+#define PRINT_WAIT 	array_obj[position].print();\
+			std::cin.get()
+#else
+#define PRINT_WAIT do{}while(0)
+#endif
+
 std::vector<OBJECT>
 Engine::run_ida ( const unsigned char * predane , unsigned size )
 {
 	std::set<OBJECT> zasobnik_pouzivanych;
-	unsigned int children_generated = 0; 
+	unsigned int children_generated = 0;
 	const int max_depth = 498;
 	unsigned int depth_heur;
 	int position = 0;
-	
-	new ( array_obj ) OBJECT ( predane, size ); // inicializace korene 
+
+	new ( array_obj ) OBJECT ( predane, size ); // inicializace korene
 	depth_heur = array_obj->get_heuristic(); // puvodni hloubka prohledavani
 
 	for ( ; depth_heur <= max_depth ; ++depth_heur )
 	{
-		new ( array_obj ) OBJECT ( predane , size ); // inicializace korene 
+		new ( array_obj ) OBJECT ( predane , size ); // inicializace korene
 		position = 0;
-		std::cout << depth_heur  << "\t" << children_generated << std::endl;
-		assert ( zasobnik_pouzivanych.size ()  <= 1 );
+		std::cout << depth_heur << "\t" << children_generated << std::endl;
 		zasobnik_pouzivanych.insert ( *array_obj );
+		assert ( zasobnik_pouzivanych.size () <= 1 );
+	PRINT_WAIT; 
 
 		while ( position >= 0 )
 		{
 			// omezeni na hloubku
-			while ( position + array_obj[position].get_heuristic() < depth_heur ) 
+			while ( position + array_obj[position].get_heuristic() < depth_heur )
 			{
 				array_obj[position].generate_best_children ();
 				// nemuze nastat chyba
 				++position;
+	PRINT_WAIT; 
 				if ( !zasobnik_pouzivanych.insert( array_obj[position] ).second )
 					break; // jestlize jsem toto uz videl
 
 				++children_generated;
 				// je to cilovy obrazec ?
-				if ( array_obj[position].get_heuristic() == 0 ) 
+				if ( array_obj[position].get_heuristic() == 0 )
 					return predej_vysledek ( array_obj, position );
 			}
 
@@ -52,32 +62,34 @@ Engine::run_ida ( const unsigned char * predane , unsigned size )
 			{
 				// vyjmout z pouzivanych dat
 				zasobnik_pouzivanych.erase ( array_obj[position+1] );
+				
 				// pokud neni mozne vytvorit dalsi dite
 				if ( array_obj[position].generate_best_children () )
 					continue;
-				  // je tento vygenerovany obj. mensi nez omezeni
+				// je tento vygenerovany obj. mensi nez omezeni
 				else if ( position + array_obj[1+position].get_heuristic() < depth_heur )
 				{	
 					++position; // ano -> do zasobniku
+	PRINT_WAIT; 
 					if ( !zasobnik_pouzivanych.insert( array_obj[position] ).second )
 						continue; // pokud uz je v zasobniku
-				
+
 					++children_generated;
 					// je to cilovy obrazec ?
-					if ( array_obj[position].get_heuristic () == 0 ) 
+					if ( array_obj[position].get_heuristic () == 0 )
 						return predej_vysledek ( array_obj, position );
 					break;
 				}
-	
-			} 
-			
-		} // 1. while 
-	} // for end 
-//	return std::vector<OBJECT>();
+
+			}
+
+		} // 1. while
+	} // for end
+	return std::vector<OBJECT>();
 }
 
 
-// prevede array objektu na vektor objektu 
+// prevede array objektu na vektor objektu
 // druhe predane cislo je velikost arraye
 static std::vector<OBJECT> predej_vysledek ( OBJECT * data , int position )
 {
@@ -86,22 +98,23 @@ static std::vector<OBJECT> predej_vysledek ( OBJECT * data , int position )
 	for ( int x = 0 ; x < position ; ++x )
 	{
 		ret_obj.push_back ( data[x] );
+		data[x].print();
 	}
-		
+
 	return ret_obj;
 }
 
-Engine::Engine ( unsigned int size ) : size( size ) 
+Engine::Engine ( unsigned int size ) : size( size )
 {
 	assert ( size >= 3 && size <= 5 );
-	// melo by stacit 
+	// melo by stacit
 	//array_obj = new 0BJECT ( );// [ 500 ];
 	array_obj = (OBJECT*)malloc( sizeof(OBJECT) * 500 );
 }
 
 Engine::~Engine ()
 {
-        //delete [] array_obj;
+	//delete [] array_obj;
 	free ( array_obj );
 }
 
@@ -110,14 +123,14 @@ Engine::~Engine ()
 // .second = jak ma po tomto kliku vypadat plocha
 std::vector<std::pair<int,OBJECT>> Engine::run ( const unsigned char * predane_usporadani )
 {
-        std::vector < OBJECT > ida_return;
+	std::vector < OBJECT > ida_return;
 
-        if ( zkontroluj_vstup( predane_usporadani , size ) ) // kontrola vstupu
-        {  std::cerr << "Neplatny vstup \n"; exit(1); }
+	if ( zkontroluj_vstup( predane_usporadani , size ) ) // kontrola vstupu
+	{ std::cerr << "Neplatny vstup \n"; exit(1); }
 
 
 	// zatim
-         assert ( size == 3 );
+	assert ( size == 3 );
 
 	ida_return = run_ida ( predane_usporadani , size ); // prvni nemusime deformovat
 }
@@ -139,7 +152,5 @@ static bool zkontroluj_vstup ( const unsigned char * predane , unsigned int size
 	}
 	return false;
 }
-
-
 
 

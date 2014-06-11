@@ -87,7 +87,7 @@ inline unsigned OBJECT::get_heuristic () const
 
 inline bool OBJECT::operator< ( const OBJECT& vzor ) const 
 {
-        for ( int x = size*size - 1; x >= 0; ++x )
+        for ( int x = size*size - 1; x >= 0; --x )
         {
                 if ( usporadani[x] < vzor.usporadani[x] )
                         return true;
