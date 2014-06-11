@@ -10,6 +10,7 @@ public:
 
 private:	
 	int predej_vysledek (  OBJECT * ,  int& );
+
 	// zde se ukladaji vsechny objekty
 	OBJECT * array_obj;	
 };
