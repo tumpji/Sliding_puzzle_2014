@@ -13,6 +13,8 @@
 *              - zjisti ktere z deti, ktere muze vygenerovat jsou nejlepsi
 *              - toto vytvori na (this+1)
 *              - inicializuje toto dite
+*      get_change();	- diva se na nasledujiciho v poradi a zjisti 
+*      			- index zmeny ( na jake policko se kliklo )
 *
 * private:
 *      size    - velikost 3x3 , 4x4 , 5x5 - { 3, 4, 5 }
@@ -49,6 +51,10 @@ public:
         bool generate_best_children ();
 
         unsigned get_heuristic () const; // inline
+
+	int get_change ( const OBJECT & ) const; 
+	unsigned char * convert ();
+	void convert_up ( unsigned );
 
 // debug
 #ifndef NDEBUG

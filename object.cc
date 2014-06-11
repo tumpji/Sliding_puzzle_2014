@@ -318,6 +318,70 @@ static unsigned int heuristic_5x5 ( const unsigned char * data )
 }	
 
 
+// preda na jaky index se ma kliknout =>
+// jaky index se oproti dalsimu ( predanemu ) usporadani
+// usporadani zmenil ( krome nuly )
+int OBJECT::get_change ( const OBJECT & obj ) const
+{
+	for ( int pos = 0; pos < (int)(size*size) ; ++pos )
+		if ( usporadani[pos] != 0 )
+			if ( usporadani[pos] != obj.usporadani[pos] )
+				return pos;
+	assert ( !"nenasla se zmena" );
+	return -1;
+}
+
+// prevede z matice 5x5 na 4x4 a z 4x4 na 3x3
+// tak aby vzdy bylo v usporadani od nuly do (size*size - 1)
+unsigned char * OBJECT::convert ( )
+{
+
+	unsigned int return_data_pos = 0;
+	for ( unsigned int x = 0; x < size*size ; ++x )
+	{
+		if ( x % size == 0 ) continue;
+		else if ( x/size == 0 ) continue;
+
+		assert ( return_data_pos < x );
+		if ( usporadani[x] != 0 )
+			usporadani[return_data_pos] = usporadani[x] - size - (usporadani[x]-1)/size;
+		else
+			usporadani[return_data_pos] = usporadani[x]; // zadna konverze
+		++return_data_pos;
+	}
+	--size;
+	return usporadani;
+}
+
+
+// prevede na vetsi matici
+void OBJECT::convert_up ( unsigned size_to_conv )
+{
+	size += 1;
+	unsigned char * old_data = new unsigned char[ size * size ];
+	for ( unsigned x = 0 ; x < (size-1)*(size-1) ; ++x )
+		old_data[x] = usporadani[x];
+
+	unsigned int pozice_old_data = 0;
+
+	for ( unsigned x = 0 ; x < size*size ; ++x )
+	{
+		if ( x % size == 0 || x/size == 0 )
+		{ usporadani[x] = x + 1; continue; }
+		
+		if ( old_data[pozice_old_data] != 0 )
+		usporadani[x] = old_data[pozice_old_data] + size   +
+				(old_data[pozice_old_data])/(size-1)*size;
+		else
+		usporadani[x] = 0;
+		++pozice_old_data;
+	}
+
+	if ( size != size_to_conv )
+		convert_up( size_to_conv );
+	delete old_data;
+}
+
 #ifndef NDEBUG
 #define PRINT( X ) std::cout << #X "\t" << (int)X << std::endl;
 

@@ -11,10 +11,11 @@ int main ( void )
 	//char zk [16] = {12,15,2,6,1,14,4,8,5,3,7,0,10,13,9,11}; // gprof v 1
 	
 	//char zk [9] = {0,1,2,3,4,5,6,7,8}; // 
-	char zk [9] = {2,6,7,5,3,8,4,0,1}; // 
+	//char zk [9] = {2,6,7,5,3,8,4,0,1}; // 
 	
+	char zk [25] = {1,2,3,0,4,6,20,22,7,5,11,8,23,24,10,21,17,19,12,14,9,16,13,15,18};
 	
-	Engine solving_engine( 3 );
+	Engine solving_engine( 5 );
 	solving_engine.run ((unsigned char * ) zk );
 	
 exit(0);

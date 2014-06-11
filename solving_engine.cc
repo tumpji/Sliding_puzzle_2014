@@ -95,14 +95,17 @@ static std::vector<OBJECT> predej_vysledek ( OBJECT * data , int position )
 {
 	std::vector< OBJECT > ret_obj;
 
-	for ( int x = 0 ; x < position ; ++x )
+	for ( int x = 0 ; x <= position ; ++x )
 	{
 		ret_obj.push_back ( data[x] );
-		data[x].print();
+		//data[x].print();
 	}
+
 
 	return ret_obj;
 }
+
+
 
 Engine::Engine ( unsigned int size ) : size( size )
 {
@@ -123,17 +126,77 @@ Engine::~Engine ()
 // .second = jak ma po tomto kliku vypadat plocha
 std::vector<std::pair<int,OBJECT>> Engine::run ( const unsigned char * predane_usporadani )
 {
+	std::vector < std::pair<int, OBJECT> > vysledek;
 	std::vector < OBJECT > ida_return;
-
+	OBJECT temp;
 	if ( zkontroluj_vstup( predane_usporadani , size ) ) // kontrola vstupu
 	{ std::cerr << "Neplatny vstup \n"; exit(1); }
 
 
 	// zatim
-	assert ( size == 3 );
+	//assert ( size == y );
 
 	ida_return = run_ida ( predane_usporadani , size ); // prvni nemusime deformovat
+	assert( ida_return.size() != 0 );
+
+	for ( unsigned int x = 0; x < (ida_return.size() - 1) ; ++x )
+	{ 
+		temp = ida_return[x]; 
+		int index_click = temp.get_change( ida_return[x+1] );
+					
+		std::pair<int,OBJECT> t = std::make_pair( index_click , temp );
+		vysledek.push_back( t );
+	}
+
+	for ( std::pair<int,OBJECT> g : vysledek )
+	{
+		std::cout << g.first << " : {" ;
+		g.second.print();
+		std::cout << "}" << std::endl;
+	}
+
+	if ( size == 3 )
+		return vysledek;
+
+	temp = *ida_return.rbegin(); // konec
+	ida_return.clear();
+	
+	unsigned char * next_computation = temp.convert();
+	temp.print();
+	temp.convert_up ( 5 );
+	temp.print();
+	
+	
+	
+	
+
+	
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 //**************************************************************************************
