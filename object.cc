@@ -357,6 +357,9 @@ unsigned char * OBJECT::convert ( )
 // prevede na vetsi matici
 void OBJECT::convert_up ( unsigned size_to_conv )
 {
+	if ( size == size_to_conv )
+		return;
+
 	size += 1;
 	unsigned char * old_data = new unsigned char[ size * size ];
 	for ( unsigned x = 0 ; x < (size-1)*(size-1) ; ++x )
@@ -371,7 +374,7 @@ void OBJECT::convert_up ( unsigned size_to_conv )
 		
 		if ( old_data[pozice_old_data] != 0 )
 		usporadani[x] = old_data[pozice_old_data] + size   +
-				(old_data[pozice_old_data])/(size-1)*size;
+				(old_data[pozice_old_data] + size - 2)/(size-1);
 		else
 		usporadani[x] = 0;
 		++pozice_old_data;

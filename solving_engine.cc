@@ -128,76 +128,44 @@ std::vector<std::pair<int,OBJECT>> Engine::run ( const unsigned char * predane_u
 {
 	std::vector < std::pair<int, OBJECT> > vysledek;
 	std::vector < OBJECT > ida_return;
-	OBJECT temp;
+	OBJECT now, next;
 	if ( zkontroluj_vstup( predane_usporadani , size ) ) // kontrola vstupu
 	{ std::cerr << "Neplatny vstup \n"; exit(1); }
 
 
-	// zatim
-	//assert ( size == y );
-
-	ida_return = run_ida ( predane_usporadani , size ); // prvni nemusime deformovat
-	assert( ida_return.size() != 0 );
-
-	for ( unsigned int x = 0; x < (ida_return.size() - 1) ; ++x )
-	{ 
-		temp = ida_return[x]; 
-		int index_click = temp.get_change( ida_return[x+1] );
-					
-		std::pair<int,OBJECT> t = std::make_pair( index_click , temp );
-		vysledek.push_back( t );
-	}
-
-	for ( std::pair<int,OBJECT> g : vysledek )
+	
+	for ( unsigned actual_size = size ; actual_size >= 3 ; --actual_size )
 	{
-		std::cout << g.first << " : {" ;
-		g.second.print();
-		std::cout << "}" << std::endl;
+		
+		// vypocet v predane_usporadani je ukazatel na data
+		ida_return = run_ida ( predane_usporadani , actual_size ); 
+		assert( ida_return.size() >= 2 );
+		// ida_return muze byt 3x3 a nebo 4x4 musime prevest na size*size
+		// nasledne se zjisti index
+		for ( unsigned pos = 0; pos < ida_return.size(); ++pos )
+		{
+			now = next;
+			next = ida_return[pos];
+			next.convert_up(size); // konverze na velikost size*size
+			if ( pos == 0 /* && size == actual_size */ ) continue;
+			int index = now.get_change( next ); // where to click
+			vysledek.push_back( // container
+				std::make_pair( index , now ) );
+		}
+		
+		now = *ida_return.rbegin(); // last element
+		ida_return.clear(); // clear
+		predane_usporadani = now.convert(); // convert down and return 
 	}
 
-	if ( size == 3 )
-		return vysledek;
+	for ( std::pair< int , OBJECT > elem : vysledek )
+	{
+		std::cout << "Klikni na : " << elem.first << std::endl;
+		elem.second.print();
+	}
 
-	temp = *ida_return.rbegin(); // konec
-	ida_return.clear();
-	
-	unsigned char * next_computation = temp.convert();
-	temp.print();
-	temp.convert_up ( 5 );
-	temp.print();
-	
-	
-	
-	
-
-	
+	return vysledek;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 //**************************************************************************************
 //
