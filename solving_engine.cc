@@ -27,7 +27,8 @@ Engine::run_ida ( const unsigned char * predane , unsigned size )
 	const int max_depth = 498;
 	unsigned int depth_heur;
 	int position = 0;
-
+	
+	std::cout << "Zahajen vypocet " << size << "x" << size << std::endl;
 	new ( array_obj ) OBJECT ( predane, size ); // inicializace korene
 	depth_heur = array_obj->get_heuristic() + 2; // puvodni hloubka prohledavani
 
@@ -112,13 +113,18 @@ Engine::Engine ( unsigned int size ) : size( size )
 	assert ( size >= 3 && size <= 5 );
 	// melo by stacit
 	//array_obj = new 0BJECT ( );// [ 500 ];
-	array_obj = (OBJECT*)malloc( sizeof(OBJECT) * 500 );
+	array_obj = (OBJECT*)malloc( sizeof(OBJECT) * 400 );
+	//aloc_mem = (OBJECT*)malloc( sizeof(OBJECT) * 500 );
+
+	//array_obj = aloc_mem;
+	//array_obj = (OBJECT*)((char*)aloc_mem + 64 - ((unsigned long)(char*)aloc_mem)%64);
 }
 
 Engine::~Engine ()
 {
 	//delete [] array_obj;
 	free ( array_obj );
+	//free ( aloc_mem );
 }
 
 // spusti cely vypocet a vrati vektor paru

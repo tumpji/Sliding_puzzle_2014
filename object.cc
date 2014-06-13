@@ -14,7 +14,7 @@
 #define BLOCK_DOWN	0x08
 
 static int vyhledej_nulu ( const unsigned char * data );
-static unsigned char check_boarders ( const unsigned char * data , int size );
+static unsigned char check_boarders ( const unsigned char * data , int size , unsigned char );
 static inline unsigned heuristika_na_miru ( const unsigned char * data , unsigned int size );
 
 static unsigned int heuristic_5x5 ( const unsigned char * data );
@@ -22,7 +22,7 @@ static unsigned int heuristic_4x4 ( const unsigned char * data );
 static unsigned int heuristic_3x3 ( const unsigned char * data );
 
 template < class T >
-void swap ( T& a, T& b )
+inline static void swap ( T& a, T& b )
 {
 	T temp = a;
 	a = b;
@@ -33,16 +33,17 @@ void swap ( T& a, T& b )
 // ***************************************************************************
 //
 
-
 // vola se k inicializaci korene u IDA*
 // kopiruje, nastavuje flags , nastavuje heuristiku
-OBJECT::OBJECT ( const unsigned char * data , int size ) : size(size)
+OBJECT::OBJECT ( const unsigned char * data , unsigned short size ) : size(size)
 {
 	assert ( size <= 5 && size >= 3  );
 
 	memcpy ( (void*)usporadani , (void*)data , size*size );
 
-	flags = check_boarders( usporadani , size );
+	whitespace_pos = vyhledej_nulu ( usporadani );
+
+	flags = check_boarders( usporadani , size , whitespace_pos );
 
 	heuristic = heuristika_na_miru ( usporadani , size );
 }
@@ -53,101 +54,144 @@ OBJECT::OBJECT ( const unsigned char * data , int size ) : size(size)
 // tohle zapsat do flags a nasledne 
 
 #define SWAP( x ) \
-	assert( mezera_index < size*size );\
-	assert( mezera_index + (x) < size*size );\
-	swap ( 	(this+1)->usporadani[mezera_index] , \
-		(this+1)->usporadani[mezera_index + (x) ] )
+	assert( whitespace_pos < size*size );\
+	assert( whitespace_pos + (x) < size*size );\
+	swap ( 	(this+1)->usporadani[whitespace_pos] , \
+		(this+1)->usporadani[whitespace_pos+ (x) ] )
+#define UPRAV_SCORE( x ) 	if( best_heuristic_value > temp ) {\
+					best_heuristic_value = temp;\
+					best_heuristic = x; }
 bool OBJECT::generate_best_children ()
 {
 	unsigned int best_heuristic_value = (unsigned)-1;
 	unsigned int best_heuristic = 0;
 	unsigned int temp;
-	unsigned int mezera_index = vyhledej_nulu ( usporadani );
-	assert ( usporadani[mezera_index] == 0 );
+	assert ( usporadani[whitespace_pos] == 0 );
 
-	new (this + 1) OBJECT( *this ); // kopie 
+	//new (this + 1) OBJECT( *this ); // kopie
 	
 	if ( ! ( flags&BLOCK_LEFT ) ) // je povoleno posunuti smerem x
 	{
-		SWAP ( -1 );
-		// vyhodnot
-		temp = heuristika_na_miru ( (this+1)->usporadani , size );
-
-		if ( temp < best_heuristic_value ) 
-		{ // porovnej s ostatnimi
-			best_heuristic_value = temp;
-			best_heuristic = BLOCK_LEFT ;
+		temp = heuristic;
+		if ( size == 3 )
+		{
+			// nula jde na levo -> nechceme +1
+			// [x-1] - prvek doleva od mezery
+			// (usporadani[ x - 1] - 1) % 3 -- do ktereho sloupce chce
+			// whitespace_pos % 3 = do ktereho sloupce zapadne
+			if ( (unsigned)(usporadani[ whitespace_pos - 1] -1)%3 < whitespace_pos%3 )
+				temp += 2;
+			// neni treba zkoumat if
+		} // neni 3 je neco vice
+		else if ( ((usporadani[ whitespace_pos - 1] - 1)%size == 0) ||  
+			  ((usporadani[ whitespace_pos - 1] - 1)/size == 0)  ) 
+		{ 
+			if ( (usporadani[ whitespace_pos - 1] -1)%size >= whitespace_pos%size )
+				--temp;
+			else
+				++temp;
 		}
-		// vrat k puvodnim hodnotam
-		SWAP ( -1 );
+
+		best_heuristic_value = temp; // je prvni nemusi se ptat
+		best_heuristic = BLOCK_LEFT; 
 	}
 
 	if ( ! ( flags&BLOCK_RIGHT ) )
 	{
-		SWAP ( 1 );
-		temp = heuristika_na_miru ( (this+1)->usporadani , size );
-
-		if ( temp < best_heuristic_value )
+		temp = heuristic;
+		if ( size == 3 )
 		{
-			best_heuristic_value = temp;
-			best_heuristic = BLOCK_RIGHT;
+			// nula jde na pravo -> chceme
+			if ( (unsigned)(usporadani[whitespace_pos+1] -1 )%3 <= whitespace_pos%3 )
+				temp -= 2;
+
 		}
-		// uklidit po sobe
-		SWAP ( 1 );
+		else if ( ((usporadani[ whitespace_pos + 1] - 1)%size == 0) ||  
+			  ((usporadani[ whitespace_pos + 1] - 1)/size == 0)  ) 
+		{
+			if ( (usporadani[whitespace_pos+1] -1 )%size <= whitespace_pos%size )
+				--temp;
+			else
+				++temp;
+		}
+			
+		UPRAV_SCORE(BLOCK_RIGHT);
 	}
 
 	if ( ! ( flags&BLOCK_UP) )
 	{
-		SWAP ( -size );
-
-		temp = heuristika_na_miru ( (this+1)->usporadani , size );
-
-		if ( temp < best_heuristic_value )
+		temp = heuristic;
+		if ( size == 3 )
 		{
-			best_heuristic_value = temp;
-			best_heuristic = BLOCK_UP;
+			// nula jde nahoru -> nechceme
+			if ( (unsigned)(usporadani[ whitespace_pos - size ] -1)/3 < whitespace_pos/3 )
+				temp += 2;
+			// neni treba zkoumat if
+		} // neni 3 je neco vice
+		else if ( ((usporadani[ whitespace_pos - size] - 1)%size == 0) ||  
+			  ((usporadani[ whitespace_pos - size] - 1)/size == 0)  ) 
+		{ 
+			if ( (usporadani[ whitespace_pos - size] -1)/size >= whitespace_pos/size )
+				--temp;
+			else
+				++temp;
 		}
-		// uklidit po sobe
-		SWAP ( -size );
+
+		UPRAV_SCORE(BLOCK_UP);
 	}
 
 	if ( ! ( flags&BLOCK_DOWN) )
 	{
-		SWAP ( size );
-
-		temp = heuristika_na_miru ( (this+1)->usporadani , size );
-
-		if ( temp < best_heuristic_value )
+		temp = heuristic;
+		if ( size == 3 )
 		{
-			best_heuristic_value = temp;
-			best_heuristic = BLOCK_DOWN;
+			// nula jde nahoru -> nechceme
+			if ( (unsigned)(usporadani[ whitespace_pos + size ] -1)/3 <= whitespace_pos/3 )
+				temp -= 2;
+		} // neni 3 je neco vice
+		else if ( ((usporadani[ whitespace_pos + size] - 1)%size == 0) ||  
+			  ((usporadani[ whitespace_pos + size] - 1)/size == 0)  ) 
+		{ 
+			if ( (usporadani[ whitespace_pos + size] -1)/size <= whitespace_pos/size )
+				--temp;
+			else
+				++temp;
 		}
-		// uklidit po sobe
-		SWAP ( size );
+
+		UPRAV_SCORE(BLOCK_DOWN);
 	}
 
 	if ( best_heuristic_value == (unsigned)-1 )
 		return true; // nepovednlo se 
 
 	this->flags |= best_heuristic; // aby se nevytvarelo znova
-	(this + 1)->heuristic = best_heuristic_value;
-	
+
+	(this + 1)->heuristic = best_heuristic_value; // heuristic
+	(this + 1)->size = size; // size
+	// 1. cast kopirovani
+	memcpy ( (void*)(this + 1)->usporadani , (void*)usporadani , size*size );
+
+	// whitespace_pos , dokonceni usporadani	
 	if ( best_heuristic == BLOCK_LEFT ) {
-		SWAP ( -1 );
-		best_heuristic = BLOCK_RIGHT;
+		SWAP ( -1 ); 			// transformace na nastavajici utvar
+		best_heuristic = BLOCK_RIGHT; 	// nasledne opatreni proti vygenerovani rodice
+		(this + 1)->whitespace_pos = whitespace_pos - 1; // vyhodnoceni pozice nuly
 	}else if (  best_heuristic == BLOCK_RIGHT) {
 		SWAP ( 1 );
 		best_heuristic = BLOCK_LEFT;
+		(this + 1)->whitespace_pos = whitespace_pos + 1;
 	}else if ( best_heuristic == BLOCK_UP ) { 
 		SWAP ( -size );
 		best_heuristic = BLOCK_DOWN;
+		(this + 1)->whitespace_pos = whitespace_pos - size;
 	}else{ // block down
 		SWAP ( size );
 		best_heuristic = BLOCK_UP;
+		(this + 1)->whitespace_pos = whitespace_pos + size;
 	}
 
 	// setting up flags
-	(this+1)->flags = check_boarders( (this + 1)->usporadani , size );
+	(this+1)->flags = check_boarders( (this + 1)->usporadani , size , (this+1)->whitespace_pos );
 	(this+1)->flags |= best_heuristic ; // ! modifikovana pred chvili
 	return false;
 }
@@ -161,42 +205,26 @@ bool OBJECT::generate_best_children ()
 //
 
 // vraci index nuly v poly 
-static int vyhledej_nulu ( const unsigned char * data )
+inline static int vyhledej_nulu ( const unsigned char * data )
 {
-	const unsigned char * pozice = data;
 	assert ( data );
-
-	while ( *pozice )
-	{ ++pozice; }
-
-	assert ( pozice - data < 25 );
-	return pozice - data; // return index
+	return (unsigned char*)memchr( data , 0 , 25 ) - data;
 }
 
 // preda to co by melo byt ve flags
 // viz object.h
-static unsigned char check_boarders ( const unsigned char * data , int size )
+inline static unsigned char check_boarders ( const unsigned char * data , int size , unsigned char  index_nuly )
 {
 	assert ( data );
-	assert ( size >= 3 && size <= 5 );
-
-	int index_nuly = vyhledej_nulu ( data );
-	assert ( index_nuly < size*size && index_nuly >= 0);
+	assert ( index_nuly < size*size );
 	assert ( data[index_nuly] == 0 );
 
 	unsigned char flags = 0;
 
-	if ( index_nuly%size 	== 0 ) 
-		flags |= BLOCK_LEFT;
-
-	if ( index_nuly%size 	== size - 1 )
-		flags |= BLOCK_RIGHT;
-
-	if ( index_nuly/size 	== 0 )
-		flags |= BLOCK_UP;
-
-	if ( index_nuly/size	== size - 1 )
-		flags |= BLOCK_DOWN;
+	if ( index_nuly%size == 0 	 ) flags |= BLOCK_LEFT;
+	if ( index_nuly%size == size - 1 ) flags |= BLOCK_RIGHT;
+	if ( index_nuly/size == 0 	 ) flags |= BLOCK_UP;
+	if ( index_nuly/size == size - 1 ) flags |= BLOCK_DOWN;
 
 	return flags;
 }
@@ -359,7 +387,7 @@ void OBJECT::convert_up ( unsigned size_to_conv )
 
 	size += 1;
 	unsigned char * old_data = new unsigned char[ size * size ];
-	for ( unsigned x = 0 ; x < (size-1)*(size-1) ; ++x )
+	for ( unsigned x = 0 ; x < (unsigned)(size-1)*(size-1) ; ++x )
 		old_data[x] = usporadani[x];
 
 	unsigned int pozice_old_data = 0;
@@ -399,7 +427,7 @@ void OBJECT::print ()
 		if ( usporadani[x] < 10 )
 			cout << " ";
 
-		if ( x % size == size - 1 )
+		if ( x % size == (unsigned)size - 1 )
 			cout << endl;
 	}
 

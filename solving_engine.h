@@ -17,4 +17,6 @@ private:
 	// zde se ukladaji vsechny objekty
 	OBJECT * array_obj;	
 	unsigned int size;
+
+	//OBJECT * aloc_mem;
 };

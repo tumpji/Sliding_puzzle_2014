@@ -1,5 +1,6 @@
 #include <cassert>
 #include <cstring>
+
 /***************************************************************************
 *      OBJECT 
 *      OBJECT() - nepouziva se temer , objekt po tomto je petencielne nebezpecny
@@ -44,13 +45,14 @@
 #define OBJECT_HEADER_DEFINED
 class OBJECT {
 public:
-        OBJECT ();
+        OBJECT (); // inline
         OBJECT ( const OBJECT & ); // inline
-        OBJECT ( const unsigned char * , int size );
+        OBJECT ( const unsigned char * , unsigned short size ); 
+
         ~OBJECT ();
 
         bool operator< ( const OBJECT & ) const; // inline
-        bool generate_best_children ();
+        bool generate_best_children (); // nepouziva konstruktor
 
         unsigned get_heuristic () const; // inline
 
@@ -66,22 +68,35 @@ public:
 #endif
 
 private:
-        unsigned size;
+/*        unsigned char size; // velikost 3 - 5
+	unsigned char whitespace_pos; // pozice mezery
         unsigned char usporadani [ 25 ]; // nejvice bude 5*5 vic ne
         unsigned char flags;
-        unsigned heuristic;
+        unsigned heuristic; */
+        unsigned size; // velikost 3 - 5
+	unsigned whitespace_pos; // pozice mezery
+        unsigned heuristic; 
+        unsigned flags;
+        unsigned char usporadani [ 25 ]; // nejvice bude 5*5 vic ne
 };
 
+// konstruktory / destruktory obj. 
+//
+//
 
-inline OBJECT::OBJECT ( const OBJECT & vzor ) : size(vzor.size), heuristic(vzor.heuristic)
-{
-        flags = vzor.flags;
-	memcpy ( (void*)usporadani , (void*)vzor.usporadani , size*size );
-}
-
-inline OBJECT::OBJECT () : size(0)
+// zakladni
+inline OBJECT::OBJECT ()
 {}
 
+// kopirovaci
+inline OBJECT::OBJECT ( const OBJECT & vzor )// : size(vzor.size)
+{
+	memcpy ( (void*)this , (void*)&vzor , sizeof(OBJECT) );
+        //flags = vzor.flags; // asi nema
+	//memcpy ( (void*)usporadani , (void*)vzor.usporadani , size*size );
+}
+
+// destruktor
 inline OBJECT::~OBJECT ( )
 {} 
 
