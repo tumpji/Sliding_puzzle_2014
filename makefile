@@ -1,8 +1,9 @@
 PREKLADAC= 	g++ -pipe -Wextra -Werror -pedantic -std=c++11 
-PARAMS= 	-g3  -ggdb #-Og#debug
+#PARAMS= 	-g3  -ggdb #-Og#debug
+#PARAMS= 	-g3  -ggdb -pg #-Og#debug
 #PARAMS= 	-g3 -ggdb -fprofile-arcs -ftest-coverage   #debug
 #PARAMS= 	-pg -O3 -mtune=native -m64 -DNDEBUG  #release
-#PARAMS= 	-O3 -mtune=native -m64 -DNDEBUG  #release
+PARAMS= 	-O3 -mtune=native -m64 -DNDEBUG  #release
 
 #KNIH= $(shell pkg-config  gtkmm-3.0 --cflags --libs) #$(shell pkg-config glibmm-3.0 --cflags --libs )
 KNIH=-L/usr/X11R6/lib -lX11 -I/usr/X11R6/include

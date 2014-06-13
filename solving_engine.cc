@@ -29,13 +29,13 @@ Engine::run_ida ( const unsigned char * predane , unsigned size )
 	int position = 0;
 
 	new ( array_obj ) OBJECT ( predane, size ); // inicializace korene
-	depth_heur = array_obj->get_heuristic(); // puvodni hloubka prohledavani
+	depth_heur = array_obj->get_heuristic() + 2; // puvodni hloubka prohledavani
 
 	for ( ; depth_heur <= max_depth ; ++depth_heur )
 	{
 		new ( array_obj ) OBJECT ( predane , size ); // inicializace korene
 		position = 0;
-		std::cout << depth_heur << "\t" << children_generated << std::endl;
+		std::cout << depth_heur << std::endl; //<< "\t" << children_generated << std::endl;
 		zasobnik_pouzivanych.insert ( *array_obj );
 		assert ( zasobnik_pouzivanych.size () <= 1 );
 	PRINT_WAIT; 
@@ -48,11 +48,11 @@ Engine::run_ida ( const unsigned char * predane , unsigned size )
 				array_obj[position].generate_best_children ();
 				// nemuze nastat chyba
 				++position;
-	PRINT_WAIT; 
+	//PRINT_WAIT; 
 				if ( !zasobnik_pouzivanych.insert( array_obj[position] ).second )
 					break; // jestlize jsem toto uz videl
 
-				++children_generated;
+	//			++children_generated;
 				// je to cilovy obrazec ?
 				if ( array_obj[position].get_heuristic() == 0 )
 					return predej_vysledek ( array_obj, position );
@@ -70,11 +70,11 @@ Engine::run_ida ( const unsigned char * predane , unsigned size )
 				else if ( position + array_obj[1+position].get_heuristic() < depth_heur )
 				{	
 					++position; // ano -> do zasobniku
-	PRINT_WAIT; 
+	//PRINT_WAIT; 
 					if ( !zasobnik_pouzivanych.insert( array_obj[position] ).second )
 						continue; // pokud uz je v zasobniku
 
-					++children_generated;
+	//				++children_generated;
 					// je to cilovy obrazec ?
 					if ( array_obj[position].get_heuristic () == 0 )
 						return predej_vysledek ( array_obj, position );
@@ -157,14 +157,15 @@ std::vector<std::pair<int,OBJECT>> Engine::run ( const unsigned char * predane_u
 		ida_return.clear(); // clear
 		predane_usporadani = now.convert(); // convert down and return 
 	}
-
+/*
 	for ( std::pair< int , OBJECT > elem : vysledek )
 	{
 		std::cout << "Klikni na : " << elem.first << std::endl;
 		elem.second.print();
 	}
-
+*/
 	return vysledek;
+
 }
 
 //**************************************************************************************

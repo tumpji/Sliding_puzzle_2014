@@ -117,6 +117,7 @@ void Comunication::click_move ( int x  , int y)
 	XSelectInput ( display, root, KeyReleaseMask );
 	XWarpPointer ( display, None, root , 0,0,0,0,x,y);
 	XFlush( display );
+	usleep(100000);
 	
 	event.type = ButtonPress;
 	event.xbutton.button = Button1;
@@ -158,7 +159,7 @@ void Comunication::click_move ( int x  , int y)
 		std::cerr << "XSendEvent error\n";
 	
 	XFlush(display);
-	XCloseDisplay(display);
+	//XCloseDisplay(display);
 }
 
 
