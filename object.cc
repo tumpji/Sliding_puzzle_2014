@@ -1,4 +1,5 @@
 #include <cassert>
+#include <cstring>
 #include <new>
 
 #ifndef NDEBUG
@@ -39,10 +40,7 @@ OBJECT::OBJECT ( const unsigned char * data , int size ) : size(size)
 {
 	assert ( size <= 5 && size >= 3  );
 
-	for ( int x = 0; x < size*size; ++x ) // usporadani
-	{
-		usporadani[x] = (unsigned char)data[x];
-	}
+	memcpy ( (void*)usporadani , (void*)data , size*size );
 
 	flags = check_boarders( usporadani , size );
 
@@ -189,7 +187,7 @@ static unsigned char check_boarders ( const unsigned char * data , int size )
 	unsigned char flags = 0;
 
 	if ( index_nuly%size 	== 0 ) 
-		flags = BLOCK_LEFT;
+		flags |= BLOCK_LEFT;
 
 	if ( index_nuly%size 	== size - 1 )
 		flags |= BLOCK_RIGHT;
@@ -207,12 +205,12 @@ static inline unsigned int heuristika_na_miru ( const unsigned char * data , uns
 {
 	assert ( size >= 3 && size <= 5 );
 
-	if ( size == 5 )
-		return heuristic_5x5 ( data );
 	if ( size == 4 )
 		return heuristic_4x4 ( data );
-	if ( size == 3 )
+	if ( size <  4 )
 		return heuristic_3x3 ( data );
+	if ( size >  4 )
+		return heuristic_5x5 ( data );
 }
 
 // heuristika pro 3x3 ostatni budou mit jine	
@@ -335,7 +333,6 @@ int OBJECT::get_change ( const OBJECT & obj ) const
 // tak aby vzdy bylo v usporadani od nuly do (size*size - 1)
 unsigned char * OBJECT::convert ( )
 {
-
 	unsigned int return_data_pos = 0;
 	for ( unsigned int x = 0; x < size*size ; ++x )
 	{

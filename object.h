@@ -1,4 +1,5 @@
 #include <cassert>
+#include <cstring>
 /***************************************************************************
 *      OBJECT 
 *      OBJECT() - nepouziva se temer , objekt po tomto je petencielne nebezpecny
@@ -74,9 +75,8 @@ private:
 
 inline OBJECT::OBJECT ( const OBJECT & vzor ) : size(vzor.size), heuristic(vzor.heuristic)
 {
-        for ( int x = 0; x < 25; ++x )
-                usporadani[x] = vzor.usporadani[x];
         flags = vzor.flags;
+	memcpy ( (void*)usporadani , (void*)vzor.usporadani , size*size );
 }
 
 inline OBJECT::OBJECT () : size(0)
@@ -94,66 +94,7 @@ inline unsigned OBJECT::get_heuristic () const
 
 inline bool OBJECT::operator< ( const OBJECT& vzor ) const 
 {
-	assert ( size >= 3 && size <= 5 );
-	assert ( sizeof(int) == 4 );
-	
-	if (  *(int*)usporadani < *(int*)vzor.usporadani )
-		return true;
-	else if (  *(int*)usporadani > *(int*)vzor.usporadani )
-		return false;
-
-// else
-//  == 
-//
-		
-	if (  *((int*)usporadani + 1 ) < *((int*)vzor.usporadani + 1) )
-		return true;
-	else if (  *((int*)usporadani + 1 ) > *((int*)vzor.usporadani + 1) )
-		return false;
-
-	
-	if ( size == 3 )
-	{
-		for ( int x = size*size - 1; x >= 8; --x )
-		{
-			if ( usporadani[x] < vzor.usporadani[x] )
-				return true;
-			else if ( usporadani[x] == vzor.usporadani[x] )
-				continue;
-			else // >
-				return false;
-		}
-		return false;
-	}
-	
-	if (  *((int*)usporadani + 2 ) < *((int*)vzor.usporadani + 2) )
-		return true;
-	else if (  *((int*)usporadani + 2 ) > *((int*)vzor.usporadani + 2) )
-		return false;
-
-	if (  *((int*)usporadani + 3 ) < *((int*)vzor.usporadani + 3) )
-		return true;
-	else if (  *((int*)usporadani + 3 ) > *((int*)vzor.usporadani + 3) )
-		return false;
-
-	if ( size == 4 ) return false;
-
-	if (  *((int*)usporadani + 4 ) < *((int*)vzor.usporadani + 4) )
-		return true;
-	else if (  *((int*)usporadani + 4 ) > *((int*)vzor.usporadani + 4) )
-		return false;
-
-	if (  *((int*)usporadani + 5 ) < *((int*)vzor.usporadani + 5) )
-		return true;
-	else if (  *((int*)usporadani + 5 ) > *((int*)vzor.usporadani + 5) )
-		return false;
-
-	if ( usporadani[24] < vzor.usporadani[24] )
-		return true;
-	else 
-		return false;
-
-	
+	return ( 0 > memcmp( (void*)usporadani , (void*)vzor.usporadani , size*size ) );
 }
 
 
