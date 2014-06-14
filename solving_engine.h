@@ -10,8 +10,8 @@ public:
 	//int set_up_and_run ( const char [CONST::policek] );
 
 	std::vector<std::pair<int,OBJECT>> run ( const unsigned char * ); 
+	std::vector<OBJECT>* run_ida ( const unsigned char * , unsigned , unsigned);
 private:	
-	std::vector<OBJECT> run_ida ( const unsigned char * , unsigned );
 
 
 	// zde se ukladaji vsechny objekty

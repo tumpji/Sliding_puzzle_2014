@@ -59,6 +59,7 @@ public:
 	int get_change ( const OBJECT & ) const; 
 	unsigned char * convert ();
 	void convert_up ( unsigned );
+	inline unsigned char * get_usporadani () { return usporadani; }
 
 // debug
 #ifndef NDEBUG

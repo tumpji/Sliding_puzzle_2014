@@ -6,9 +6,25 @@
 #include "solving_engine.h"
 #include "object.h"
 
-static std::vector<OBJECT> predej_vysledek ( const OBJECT * data, int position );
+#include <pthread.h>
+
+#define THREAD_COUNT 8
+
+
+
+//static std::vector<OBJECT>* predej_vysledek ( const OBJECT * data, int position );
 static bool zkontroluj_vstup ( const unsigned char * predane , unsigned int );
-static std::vector<OBJECT> predej_vysledek ( OBJECT * data , int position );
+static std::vector<OBJECT>* predej_vysledek ( OBJECT * data , int position );
+
+struct Setup_str
+{
+	Engine * engine;
+	unsigned size;
+	unsigned char * predane_usporadani;
+	pthread_t threads[THREAD_COUNT];
+	volatile unsigned enabled_computation;
+	pthread_mutex_t enabled_c_mux;
+}aktualni_vypocet;
 
 // implementace IDA*
 
@@ -19,27 +35,33 @@ static std::vector<OBJECT> predej_vysledek ( OBJECT * data , int position );
 #define PRINT_WAIT do{}while(0)
 #endif
 
-std::vector<OBJECT>
-Engine::run_ida ( const unsigned char * predane , unsigned size )
+#define LOCK pthread_mutex_lock( &aktualni_vypocet.enabled_c_mux ); // lock
+#define UNLOCK pthread_mutex_unlock( &aktualni_vypocet.enabled_c_mux ); // unlock
+
+std::vector<OBJECT>*
+Engine::run_ida ( const unsigned char * predane , unsigned size , unsigned thread_id )
 {
 	std::set<OBJECT> zasobnik_pouzivanych;
 	unsigned int children_generated = 0;
-	const int max_depth = 498;
 	unsigned int depth_heur;
 	int position = 0;
+	OBJECT * array_obj = this->array_obj + 100*thread_id;
 	
-	std::cout << "Zahajen vypocet " << size << "x" << size << std::endl;
+	//std::cout << "Zahajen vypocet " << size << "x" << size << std::endl;
 	new ( array_obj ) OBJECT ( predane, size ); // inicializace korene
-	depth_heur = array_obj->get_heuristic() + 2; // puvodni hloubka prohledavani
+	depth_heur = array_obj->get_heuristic() + 2 + thread_id; // puvodni hloubka prohledavani
 
-	for ( ; depth_heur <= max_depth ; ++depth_heur )
+	for ( ; depth_heur < 100 ; depth_heur += THREAD_COUNT )
 	{
 		new ( array_obj ) OBJECT ( predane , size ); // inicializace korene
 		position = 0;
-		std::cout << depth_heur << std::endl; //<< "\t" << children_generated << std::endl;
+		//LOCK;
+		//std::cout << depth_heur << "\tvlakno :" << thread_id << std::endl; //<< "\t" << children_generated << std::endl;
+		//UNLOCK;
 		zasobnik_pouzivanych.insert ( *array_obj );
 		assert ( zasobnik_pouzivanych.size () <= 1 );
-	PRINT_WAIT; 
+	//PRINT_WAIT; 
+
 
 		while ( position >= 0 )
 		{
@@ -58,6 +80,9 @@ Engine::run_ida ( const unsigned char * predane , unsigned size )
 				if ( array_obj[position].get_heuristic() == 0 )
 					return predej_vysledek ( array_obj, position );
 			}
+
+		if ( !aktualni_vypocet.enabled_computation )
+			return nullptr;
 
 			while ( --position >= 0 ) // backtrace jen do korene
 			{
@@ -86,23 +111,33 @@ Engine::run_ida ( const unsigned char * predane , unsigned size )
 
 		} // 1. while
 	} // for end
-	return std::vector<OBJECT>();
+	return nullptr;
 }
 
 
 // prevede array objektu na vektor objektu
 // druhe predane cislo je velikost arraye
-static std::vector<OBJECT> predej_vysledek ( OBJECT * data , int position )
+static std::vector<OBJECT>* predej_vysledek ( OBJECT * data , int position )
 {
-	std::vector< OBJECT > ret_obj;
+	if ( aktualni_vypocet.enabled_computation == false ) return nullptr; // check
+
+	pthread_mutex_lock( &aktualni_vypocet.enabled_c_mux ); // lock
+
+	if ( aktualni_vypocet.enabled_computation == false )
+	{ UNLOCK; return nullptr;} // check
+
+	aktualni_vypocet.enabled_computation = false; // set up
+	std::cout << "Jsem prvni ... ukoncuji vypocty ostatnim .. " << std::endl;
+	
+	std::vector< OBJECT >* ret_obj = new std::vector< OBJECT >;
 
 	for ( int x = 0 ; x <= position ; ++x )
 	{
-		ret_obj.push_back ( data[x] );
-		//data[x].print();
+		ret_obj->push_back ( data[x] );
+		data[x].print();
 	}
 
-
+	pthread_mutex_unlock( &aktualni_vypocet.enabled_c_mux ); // unlock
 	return ret_obj;
 }
 
@@ -113,7 +148,7 @@ Engine::Engine ( unsigned int size ) : size( size )
 	assert ( size >= 3 && size <= 5 );
 	// melo by stacit
 	//array_obj = new 0BJECT ( );// [ 500 ];
-	array_obj = (OBJECT*)malloc( sizeof(OBJECT) * 400 );
+	array_obj = (OBJECT*)malloc( sizeof(OBJECT) * 100 * THREAD_COUNT );
 	//aloc_mem = (OBJECT*)malloc( sizeof(OBJECT) * 500 );
 
 	//array_obj = aloc_mem;
@@ -124,7 +159,17 @@ Engine::~Engine ()
 {
 	//delete [] array_obj;
 	free ( array_obj );
-	//free ( aloc_mem );
+}
+
+
+// spolupracuje s pthread.h
+void* callHandle ( void * data )
+{
+	return (void*)aktualni_vypocet.engine->run_ida ( 	
+					aktualni_vypocet.predane_usporadani ,
+					aktualni_vypocet.size , 
+					(int)(long)data );
+	
 }
 
 // spusti cely vypocet a vrati vektor paru
@@ -133,25 +178,40 @@ Engine::~Engine ()
 std::vector<std::pair<int,OBJECT>> Engine::run ( const unsigned char * predane_usporadani )
 {
 	std::vector < std::pair<int, OBJECT> > vysledek;
-	std::vector < OBJECT > ida_return;
+	std::vector < OBJECT >* ida_return = nullptr;
 	OBJECT now, next;
 	if ( zkontroluj_vstup( predane_usporadani , size ) ) // kontrola vstupu
 	{ std::cerr << "Neplatny vstup \n"; exit(1); }
 
+	pthread_mutex_init( &aktualni_vypocet.enabled_c_mux , 0 ); // mutex init
 
-	
 	for ( unsigned actual_size = size ; actual_size >= 3 ; --actual_size )
 	{
-		
+		aktualni_vypocet.engine = this;
+		aktualni_vypocet.predane_usporadani = (unsigned char *)predane_usporadani;
+		aktualni_vypocet.size = actual_size;	
+		aktualni_vypocet.enabled_computation = true;	
 		// vypocet v predane_usporadani je ukazatel na data
-		ida_return = run_ida ( predane_usporadani , actual_size ); 
-		assert( ida_return.size() >= 2 );
+		for ( int x = 0; x < THREAD_COUNT ; ++x )
+			pthread_create( &(aktualni_vypocet.threads[x]), 0 , &callHandle, (void*)(long)x );
+
+		std::vector < OBJECT > * temp;
+		for ( int x = 0; x < THREAD_COUNT ; ++x ) // sbirani vyrobenych
+		{
+			pthread_join (  aktualni_vypocet.threads[x] , (void**)&temp );
+			if ( temp != nullptr ) ida_return = temp;
+		}
+		//ida_return = run_ida ( predane_usporadani , actual_size ); 
+		
+		assert( ida_return->size() >= 2 );
+
+
 		// ida_return muze byt 3x3 a nebo 4x4 musime prevest na size*size
 		// nasledne se zjisti index
-		for ( unsigned pos = 0; pos < ida_return.size(); ++pos )
+		for ( unsigned pos = 0; pos < ida_return->size(); ++pos )
 		{
 			now = next;
-			next = ida_return[pos];
+			next = (*ida_return)[pos];
 			next.convert_up(size); // konverze na velikost size*size
 			if ( pos == 0 /* && size == actual_size */ ) continue;
 			int index = now.get_change( next ); // where to click
@@ -159,8 +219,8 @@ std::vector<std::pair<int,OBJECT>> Engine::run ( const unsigned char * predane_u
 				std::make_pair( index , now ) );
 		}
 		
-		now = *ida_return.rbegin(); // last element
-		ida_return.clear(); // clear
+		now = *ida_return->rbegin(); // last element
+		ida_return->clear(); // clear
 		predane_usporadani = now.convert(); // convert down and return 
 	}
 /*
@@ -170,6 +230,8 @@ std::vector<std::pair<int,OBJECT>> Engine::run ( const unsigned char * predane_u
 		elem.second.print();
 	}
 */
+
+	pthread_mutex_destroy ( &aktualni_vypocet.enabled_c_mux ); // mutex destroy
 	return vysledek;
 
 }

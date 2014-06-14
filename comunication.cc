@@ -22,7 +22,7 @@
 		"Budete mit 4s na splneni"
 
 #define ZPRAVA3 "Potrebuji poskladany obrazek...\n"\
-		"Odjedte z hraci plochy misi pric !!\n"\
+		"Odjedte z hraci plochy mysi pryc !!\n"\
 		"Potom stisknete enter a odstrante z hraci plochy kurzor"
 
 
@@ -117,7 +117,7 @@ void Comunication::click_move ( int x  , int y)
 	XSelectInput ( display, root, KeyReleaseMask );
 	XWarpPointer ( display, None, root , 0,0,0,0,x,y);
 	XFlush( display );
-	usleep(100000);
+	usleep(100);
 	
 	event.type = ButtonPress;
 	event.xbutton.button = Button1;
@@ -150,7 +150,9 @@ void Comunication::click_move ( int x  , int y)
 	
 	XFlush(display);
 	
-	usleep(100000);
+	//usleep(100000);
+	usleep(700);
+	//usleep(1000);
 	
 	event.type = ButtonRelease;
 	event.xbutton.state = 0x100;

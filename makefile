@@ -1,4 +1,4 @@
-PREKLADAC= 	g++ -pipe -Wextra -Werror -pedantic -std=c++11 
+PREKLADAC= 	g++ -pipe -Wextra -Werror -pedantic -std=c++11 -pthread
 #PARAMS= 	-g3  -ggdb #-Og#debug
 #PARAMS= 	-g3  -ggdb -pg #-Og#debug
 #PARAMS= 	-g3 -ggdb -fprofile-arcs -ftest-coverage   #debug
