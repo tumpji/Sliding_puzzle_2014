@@ -41,6 +41,7 @@ Comunication::Comunication ()
 	get_approximately_area ( ); // dostane od uzivatele oblast hry 
 	get_accurately_area ( ); // tuhle oblast lepe analizuje
 	get_user_indexes ();
+
 }
 
 Comunication::~Comunication ()
@@ -48,6 +49,11 @@ Comunication::~Comunication ()
 	for ( unsigned long * mem : obrazy_poli )
 	{ assert ( mem ); free(mem ); }
 	obrazy_poli.clear(); 
+}
+
+void Comunication::poskladej_puzzle ()
+{
+	click_move( x_poskladej , y_poskladej );
 }
 
 // funkce ma za ukol vzit obrazky jiz serazeneho hraciho pole a 
@@ -368,11 +374,23 @@ void Comunication::get_approximately_area ( )
 		exit (1);
 	}
 
+	std::cout << "Podrz nad poskladej puzzle !!! " << std::endl; counting ();
+
+	// poskladej puzzle
+	if ( !XQueryPointer ( display , root , &root , &child ,
+			&x_root , &y_root , &x_poskladej, &y_poskladej , &mask_return ) )
+	{
+		std::cerr << "XQueryPointer error\n";
+		exit (1);
+	}
+
 	if ( check_and_modify ( active_area ) ) 
 	{
 		std::cerr << "Chyba v uzivatelskem vstupu\n";
 		exit (1);
 	}
+
+	
 }
 
 // ma za ukol zjistit presne velikosti policek 
@@ -425,7 +443,7 @@ static void counting ()
 
 	cin.get();
 	cin.clear();
-	for ( int time = 2; time > 0 ; --time )
-		{cout << time << " " << flush; sleep(1);}
+	//for ( int time = 2; time > 0 ; --time )
+	//	{cout << time << " " << flush; sleep(1);}
 	cout << 0 << endl;
 }

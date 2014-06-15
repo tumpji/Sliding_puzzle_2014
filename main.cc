@@ -2,8 +2,9 @@
 #include "solving_engine.h"
 #include "comunication.h"
 #include <unistd.h>// us
+#include <time.h>
 
-int main ( void ) 
+int main ( int argc , char* argv[] ) 
 {
 	//char zk [16] = { 9,5,15,12,14,2,11,7,4,8,6,3,13,10,0,1 };
 	const char * predane;
@@ -56,33 +57,59 @@ int main ( void )
 
 //exit ( 0 );
 
+	
+	timespec time_beg, time_now;
+	double pozadovany_cas;
+	
 	std::vector< std::pair< int , OBJECT > > postup;
 	Engine solving_engine( 4 );
 	Comunication rozhrani;
 	int pocet_neuspesnych = 0;
 	int pocet_uspesnych = 0;
+	std::cout << "Pozadovany cas : " ; std::cin.clear();
+	std::cin >> pozadovany_cas;
+	std::cin.clear();
 
 	while ( 1 )
 	{
 		std::cout << "Hotovo cekam na spusteni ... " << std::endl;
-		std::cin.get();
+	//	std::cin.get(); 
+		sleep ( 2 );
 
-		predane = rozhrani.preber_usporadani();
+		if ( argc == 2 )
+			;
+		else
+			rozhrani.poskladej_puzzle ();
+		
+		do
+		{
+			usleep( 1000 );
+				predane = rozhrani.preber_usporadani();
+		}
+		while( predane == nullptr );
 
+		clock_gettime( CLOCK_REALTIME , &time_beg );// zacne odpocitavat
 		assert( predane );
 		postup = solving_engine.run ((unsigned char *)predane);
-		
+		std::cout << "pocet posunu cekej tak ... " << postup.size() << std::endl;
+		if ( postup.size() < 37 )
+			std::cout << "Tohle bude rychle :) :0 " << std::endl;
 
 		//for ( std::pair< int , OBJECT > aktualni : postup )
 		for ( unsigned pozice = 0 ; pozice < postup.size()-1 ; ++pozice )
 		{
-		std::pair< int , OBJECT >&  aktualni = postup[pozice];
-		int pocet_hu_baba = 0;
-		int pocet_neuspesnych_in_row = 0;
+			std::pair< int , OBJECT >&  aktualni = postup[pozice];
+			int pocet_hu_baba = 0;
+			int pocet_neuspesnych_in_row = 0;
 
-			do{
+			do
+			{
 				rozhrani.click_on_area ( aktualni.first );
-				usleep( 200000 ); // 0.05 s
+				
+				usleep	(  ( unsigned int)(
+					205000./(6.*pocet_neuspesnych_in_row + 1.)*
+					( 2.*pocet_neuspesnych_in_row*pocet_neuspesnych_in_row + 1. ) )  );
+	//znovu:
 				predane = rozhrani.preber_usporadani();
 
 				if ( predane == nullptr )
@@ -93,12 +120,12 @@ int main ( void )
 					continue;
 				}
 
-				if  ( memcmp( (void*)predane , (void*)aktualni.second.get_usporadani() ,
-				4*4 ) 	== 0 )
+				if  ( memcmp( (void*)predane , (void*)aktualni.second.get_usporadani() , 4*4 ) 	== 0 )
 				{
-					++pocet_neuspesnych;
-					usleep( 10000 );
+					//++pocet_neuspesnych;
+					//usleep( 100000 );
 					++pocet_neuspesnych_in_row;
+				//	goto znovu;
 				}
 					
 			}while( !predane || memcmp( (void*)predane , (void*)aktualni.second.get_usporadani() ,
@@ -109,14 +136,49 @@ int main ( void )
 				if ( pocet_neuspesnych_in_row == 0 )
 					++pocet_uspesnych;
 			
-		}
+		} // kliknou na vsechny krome posledniho
+		
+		static bool uz_jsem_tu_byl = false;
+		while ( 1 )
+		{
+			clock_gettime( CLOCK_REALTIME , &time_now );
+			double time_difference = (	( time_now.tv_sec - time_beg.tv_sec ) + 
+							(time_now.tv_nsec - time_beg.tv_nsec)/1e9 ) ;
+			double click_count = pocet_uspesnych + pocet_neuspesnych ; 
 
+			if ( 	pozadovany_cas <= time_difference &&
+				click_count/time_difference <= 3.5 )
+			{ 
+				std::cout 	<< time_difference << "\ts" << std::endl 
+						<< click_count << "\tclicku" << std::endl
+						<< (double)(click_count/time_difference) << "\tclick/s " << std::endl;
+				break;
+			}
+			if ( !uz_jsem_tu_byl )
+			{
+				std::cout << "Udelal jsem to za " << time_difference << "\ts" << std::endl;
+				std::cout << "Udelal jsem to za " << click_count/time_difference << "\tclick/s" << std::endl;
+				uz_jsem_tu_byl = true;
+			}
+
+		//	std::cout << "Cekam ... " << std::endl;
+			usleep( 1000 );
+		} 
+		
+		while( predane != nullptr )
+		{
+			rozhrani.click_on_area ( postup.rbegin()->first );
+			usleep( 250000 );
+			predane = rozhrani.preber_usporadani();
+		}
+					
 		std::cout << "Neuspesnych celkem : " << pocet_neuspesnych << std::endl;
 		std::cout << "Uspesnych celkem   : " << pocet_uspesnych << std::endl;
 		std::cout << "Posunuti celkem    : " << postup.size() << std::endl;
 	
 		pocet_neuspesnych = 0;
 		pocet_uspesnych = 0;
+		uz_jsem_tu_byl = false;
 	}
 
 	return 0;

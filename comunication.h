@@ -23,6 +23,7 @@ public:
 	
 	// vypocita kam ma kliknout a klikne na policko
 	void click_on_area ( int index );
+	void poskladej_puzzle ();
 private:
 	// pohne s ukazatelem a klikne
 	void click_move ( int x , int y );
@@ -46,5 +47,7 @@ private:
 	// [0] left top , [1] down bottom , game_area
 	COORDINATES active_area[2];
 	std::vector<unsigned long *> obrazy_poli;
+
+	int x_poskladej, y_poskladej;
 };
 
