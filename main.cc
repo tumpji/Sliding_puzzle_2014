@@ -1,186 +1,256 @@
 #include <iostream>
-#include "solving_engine.h"
-#include "comunication.h"
+#include <cassert>
 #include <unistd.h>// us
 #include <time.h>
+#include <cmath>
+#include <climits>
+
+#include "solving_engine.h"
+#include "comunication.h"
+
+#ifndef NDEBUG
+#define PRINT( x ) std::cout << #x "  =   " << x << std::endl;
+#else
+#define PRINT( x ) 
+#endif
+
+struct 
+{
+	timespec time_beg;
+	timespec time_end;
+}time_str;
+
+// klikne na poskladej puzzle a returnuje nasledujici usporadani
+static const char * klik_poskladej_puzzle ( int argc , Comunication& rozhrani );
+
+// uspe program na zadany pocet sec.
+static void my_sleep ( float time );
+
+// posklada policka dle predaneho postupu
+static void skladani_policek ( Comunication& rozhrani, std::vector<std::pair<int, OBJECT>>& postup , const char * );
+
+/*
+double time_difference = (	( time_now.tv_sec - time_beg.tv_sec ) + 
+				(time_now.tv_nsec - time_beg.tv_nsec)/1e9 ) ;
+
+*/
+
+static void thinking_simulation ( unsigned size , unsigned pos );
+
+static void thinking_simulation ( unsigned size , unsigned pos )
+{
+	static bool message_imposible = false;
+	if ( pos == 0 ) message_imposible = false;
+
+	const static float minimum_time = 1.f/( 3.6f ); 	// maximalni frekvence ( click/sec )
+	// minimalni rozdil mezi optimem a maximem 
+	const static float minimum_opt = 1.f/( 3.2f ); // nejvetsi rychlost prumerna
+
+	timespec now; // aktualni cas
+	clock_gettime ( CLOCK_REALTIME, &now ); 
+
+	double to_end =	( - now.tv_sec + time_str.time_end.tv_sec ) +
+			( - now.tv_nsec + time_str.time_end.tv_nsec )/1e9 ;
+
+	float optimum = to_end/(float)( size-(pos+1) ); // sec/click
+	float diff = optimum - minimum_time;
+	int rand_modulo = (diff*2.*1e7);
+
+	PRINT( to_end );
+	PRINT( diff );
+	PRINT( optimum );
+
+	if ( size == pos + 1 && !message_imposible ) // posledni kousek --- vylepseni presne konvergence
+	{ // snazime se trefit presne do casu
+		if ( to_end >= minimum_time )
+			my_sleep( to_end );  // presne 
+		else 
+			my_sleep( minimum_time ); // nepresne 
+		return; 
+	}
+	else if ( size == pos + 2 && !message_imposible ) // predposledni
+	{
+		if ( optimum > minimum_time ) {
+			rand_modulo = diff*1e7; // polovicni roztec
+			PRINT( rand_modulo );
+			rand_modulo = rand()%rand_modulo;
+			my_sleep ( rand_modulo + diff/2. + minimum_time );
+			return ;
+		}
+		else
+			my_sleep( minimum_time );
+		return;
+	}
+
+	if ( optimum < minimum_opt || message_imposible ) {
+		rand_modulo = 2.*((1./1.8) - minimum_time)*1e7; // velke opt
+		if ( !message_imposible ) {
+			if ( size - ( pos + 1 ) > 4 ) // neplati kdyz se uz blizime 
+				message_imposible = true;
+			std::cout << "Nelze stihnout " << std::endl;
+		}
+	}
+	
+	PRINT( rand_modulo );
+
+	assert( rand_modulo  > 0 );
+	rand_modulo = rand()%rand_modulo;
+
+	float time_wait = ((double)rand_modulo)/1e7 + minimum_time ;
+
+	std::cout << "sleep: " << time_wait << std::endl;
+	my_sleep( time_wait );
+}
+
+inline static void init_timer ( double time )
+{
+	clock_gettime( CLOCK_REALTIME , &time_str.time_beg ); // zacne se odpocitavat
+
+	time_str.time_end.tv_sec = time_str.time_beg.tv_sec + (unsigned)time;
+
+	time_str.time_end.tv_nsec = time_str.time_beg.tv_nsec + 
+		(long)(( time - floor(time) )*1e9);
+
+	if ( time_str.time_end.tv_nsec < 0 ) {// preteceni
+		++time_str.time_end.tv_sec;
+		time_str.time_end.tv_nsec -= LONG_MAX;
+	}
+
+	if ( time_str.time_end.tv_nsec >= 1e9 ) {
+		++time_str.time_end.tv_sec;
+		time_str.time_end.tv_nsec -= 1e9;
+	}
+	 
+
+}
+
 
 int main ( int argc , char* argv[] ) 
 {
-	//char zk [16] = { 9,5,15,12,14,2,11,7,4,8,6,3,13,10,0,1 };
 	const char * predane;
-	//char zk [16] = { 3,6,10,4,2,9,8,12,1,14,7,0,5,13,11,15 }; // gprof v 1
-	//char zk [16] = {12,15,2,6,1,14,4,8,5,3,7,0,10,13,9,11}; // gprof v 1
-	//char zk [9] = {0,1,2,3,4,5,6,7,8}; // 
-	//char zk [9] = {2,6,7,5,3,8,4,0,1}; // 
-	char zk [25] = {1,2,3,0,4,6,20,22,7,5,11,8,23,24,10,21,17,19,12,14,9,16,13,15,18};
-/*	
-	char test_data[6][25]= {
-	{4,8,18,10,6,16,2,17,11,15,22,0,5,3,13,1,7,19,20,9,21,14,23,12,24},
-	{6,8,7,15,4,5,16,11,1,9,12,17,21,10,3,22,23,13,20,0,2,18,14,19,24},
-	{13,7,5,23,17,1,2,9,10,4,3,6,19,0,15,11,16,8,24,20,21,22,14,12,18},
-	{13,7,5,23,17,1,2,9,10,4,3,6,19,0,15,11,16,8,24,20,21,22,14,12,18},
-	{1,2,9,5,10,7,11,19,24,8,14,23,4,20,3,17,6,0,13,18,16,21,15,22,12},
-	{1,2,3,5,10,12,6,19,14,8,21,9,23,17,13,16,15,4,24,22,7,20,18,0,11},
-	};
-*/
-/*	
-	char test_data[6][25]= {
-	char test_data[18][25]= {
-	{1,3,10,4,9,0,15,6,14,2,5,11,7,8,12,13},
-	{1,7,2,4,5,3,14,0,11,8,15,12,10,9,6,13},
-	{3,9,12,8,6,2,11,7,13,10,1,15,14,0,5,4},
-	{6,1,7,12,5,0,2,8,4,10,14,3,13,11,9,15},
-	{3,14,7,4,1,13,11,2,6,15,12,8,9,0,10,5},
-	{6,13,12,4,14,0,2,8,1,9,5,15,7,3,10,11},
-	{9,14,8,4,6,12,7,0,5,2,1,3,13,11,10,15},
-	{8,7,1,12,2,0,5,3,9,6,11,15,13,10,14,4},
-	{2,7,9,8,12,0,4,1,6,15,14,5,13,10,3,11},
-	{2,5,3,4,15,9,1,8,6,11,13,10,14,7,12,0},
-	{3,12,14,1,2,7,10,4,6,15,11,9,13,0,5,8},
-	{8,4,1,5,9,2,6,10,14,13,3,12,7,0,11,15},
-	{5,7,12,4,14,0,1,2,6,13,15,3,9,8,10,11},
-	{1,4,12,8,10,0,5,9,2,11,6,15,13,14,3,7},
-	{2,4,8,3,6,0,10,5,1,11,14,9,13,12,7,15},
-	{1,14,8,3,9,10,12,0,6,7,15,2,5,4,13,11},
-	{1,2,4,8,7,12,14,15,5,11,6,10,13,0,3,9},
-	{9,12,8,3,2,0,1,5,11,7,10,4,14,6,15,13}
-	};
-*/	
 
-	//Engine solving_engine( 4 );
-//	std::cout << "size = " << sizeof(OBJECT ) << std::endl;
-
-	//for ( int x = 0 ; x < 18 ; ++x )
-	//{
-		//solving_engine.run ((unsigned char *)test_data[x]);
-	//}
-
-//exit ( 0 );
-
-	
-	timespec time_beg, time_now;
-	double pozadovany_cas;
-	
 	std::vector< std::pair< int , OBJECT > > postup;
 	Engine solving_engine( 4 );
 	Comunication rozhrani;
-	int pocet_neuspesnych = 0;
-	int pocet_uspesnych = 0;
-	std::cout << "Pozadovany cas : " ; std::cin.clear();
-	std::cin >> pozadovany_cas;
-	std::cin.clear();
 
-	while ( 1 )
-	{
-		std::cout << "Hotovo cekam na spusteni ... " << std::endl;
-	//	std::cin.get(); 
-		sleep ( 2 );
+	// klikne na poskladej puzzle a prebere prvni rozpolozeni
+	predane = klik_poskladej_puzzle ( argc , rozhrani );
+	init_timer ( 20 );
+	// zacina se odpocitavat
+	std::cout << "Zacinam pocitat ... " << std::endl;
+	postup = solving_engine.run ((unsigned char *)predane);
+	std::cout << "Vypocet skoncil ";
+	skladani_policek ( rozhrani, postup, predane ); // posklada policka
 
-		if ( argc == 2 )
-			;
-		else
-			rozhrani.poskladej_puzzle ();
-		
-		do
-		{
-			usleep( 1000 );
-				predane = rozhrani.preber_usporadani();
-		}
-		while( predane == nullptr );
-
-		clock_gettime( CLOCK_REALTIME , &time_beg );// zacne odpocitavat
-		assert( predane );
-		postup = solving_engine.run ((unsigned char *)predane);
-		std::cout << "pocet posunu cekej tak ... " << postup.size() << std::endl;
-		if ( postup.size() < 37 )
-			std::cout << "Tohle bude rychle :) :0 " << std::endl;
-
-		//for ( std::pair< int , OBJECT > aktualni : postup )
-		for ( unsigned pozice = 0 ; pozice < postup.size()-1 ; ++pozice )
-		{
-			std::pair< int , OBJECT >&  aktualni = postup[pozice];
-			int pocet_hu_baba = 0;
-			int pocet_neuspesnych_in_row = 0;
-
-			do
-			{
-				rozhrani.click_on_area ( aktualni.first );
-				
-				usleep	(  ( unsigned int)(
-					205000./(6.*pocet_neuspesnych_in_row + 1.)*
-					( 2.*pocet_neuspesnych_in_row*pocet_neuspesnych_in_row + 1. ) )  );
-	//znovu:
-				predane = rozhrani.preber_usporadani();
-
-				if ( predane == nullptr )
-				{
-					std::cerr << " Hu baba ... " << std::endl;
-					sleep( 1 );
-					if ( pocet_hu_baba++ > 1 ) break;
-					continue;
-				}
-
-				if  ( memcmp( (void*)predane , (void*)aktualni.second.get_usporadani() , 4*4 ) 	== 0 )
-				{
-					//++pocet_neuspesnych;
-					//usleep( 100000 );
-					++pocet_neuspesnych_in_row;
-				//	goto znovu;
-				}
-					
-			}while( !predane || memcmp( (void*)predane , (void*)aktualni.second.get_usporadani() ,
-				4*4 ) 	== 0		);
-		
-				pocet_neuspesnych += pocet_neuspesnych_in_row;
-				std::cout << "Neuspel jsem " << pocet_neuspesnych_in_row << "x\n";
-				if ( pocet_neuspesnych_in_row == 0 )
-					++pocet_uspesnych;
-			
-		} // kliknou na vsechny krome posledniho
-		
-		static bool uz_jsem_tu_byl = false;
-		while ( 1 )
-		{
-			clock_gettime( CLOCK_REALTIME , &time_now );
-			double time_difference = (	( time_now.tv_sec - time_beg.tv_sec ) + 
-							(time_now.tv_nsec - time_beg.tv_nsec)/1e9 ) ;
-			double click_count = pocet_uspesnych + pocet_neuspesnych ; 
-
-			if ( 	pozadovany_cas <= time_difference &&
-				click_count/time_difference <= 3.5 )
-			{ 
-				std::cout 	<< time_difference << "\ts" << std::endl 
-						<< click_count << "\tclicku" << std::endl
-						<< (double)(click_count/time_difference) << "\tclick/s " << std::endl;
-				break;
-			}
-			if ( !uz_jsem_tu_byl )
-			{
-				std::cout << "Udelal jsem to za " << time_difference << "\ts" << std::endl;
-				std::cout << "Udelal jsem to za " << click_count/time_difference << "\tclick/s" << std::endl;
-				uz_jsem_tu_byl = true;
-			}
-
-		//	std::cout << "Cekam ... " << std::endl;
-			usleep( 1000 );
-		} 
-		
-		while( predane != nullptr )
-		{
-			rozhrani.click_on_area ( postup.rbegin()->first );
-			usleep( 250000 );
-			predane = rozhrani.preber_usporadani();
-		}
-					
-		std::cout << "Neuspesnych celkem : " << pocet_neuspesnych << std::endl;
-		std::cout << "Uspesnych celkem   : " << pocet_uspesnych << std::endl;
-		std::cout << "Posunuti celkem    : " << postup.size() << std::endl;
 	
-		pocet_neuspesnych = 0;
-		pocet_uspesnych = 0;
-		uz_jsem_tu_byl = false;
-	}
+	clock_gettime( CLOCK_REALTIME , &time_str.time_end ); // zacne se odpocitavat
+	std::cout << "Hotovo za : " << ( time_str.time_end.tv_sec - time_str.time_beg.tv_sec) +
+				( time_str.time_end.tv_nsec - time_str.time_beg.tv_nsec )/1e9
+		<< std::endl;
 
 	return 0;
+}
 
+
+
+
+// klikne na poskladej puzzle a pocka na odpoved a lag
+// vraci aktualni usporadani
+static const char * klik_poskladej_puzzle ( int argc, Comunication& rozhrani )
+{
+	const char * predane = nullptr;	
+
+	if ( argc < 2 )  { // jestli je to bez arg.
+		std::cout << "Cekam na start ... " << std::endl;
+		std::cin.clear(); // predchozi vstupy
+		std::cin.ignore(  100 , '\n' );
+		std::cin.get(); 
+	}
+
+	std::cout << "Cekam 2s ... " << std::endl;
+	sleep ( 2 ); // pockame 
+	
+	rozhrani.poskladej_puzzle_click ();
+
+	do { // cekej dokud se nenachysta hraci pole
+		usleep( 1000 );
+		predane = rozhrani.preber_usporadani();
+	}
+	while( predane == nullptr );
+	return predane;
+}
+
+static void skladani_policek ( 
+			Comunication& rozhrani, 
+			std::vector<std::pair<int, OBJECT>>& postup,
+			const char * predane )
+{
+	std::pair< int, OBJECT>  aktualni; 	// aktualni prvek ze ktereho se chceme dostat
+						// kliknuti na index aktualni.first
+						// se dostaneme z neho na dalsi v rade 
+
+	int pocet_neuspesnych_in_row = 0;	// kolikrat se kliknuti nepovedlo ( lag )
+	int pocet_neuspesnych = 0;		// celkove hodnoty
+	int pocet_uspesnych = 0;		// celkove hodnoty
+
+	std::cout << "pocet posunu = " << postup.size() << std::endl;
+	for ( unsigned pozice = 0; pozice < postup.size(); ++pozice ) // iterace po vsech mez.
+	{
+		aktualni = postup[pozice]; // aktualni mezikrok
+
+	    do { // zapoleni s lagy
+		rozhrani.click_on_area ( aktualni.first ); // klikne na index
+		
+//		my_sleep ( 1 ); // pocka vypocitanou hodnotu
+		thinking_simulation( postup.size() , pozice );
+		predane = rozhrani.preber_usporadani(); // zjisti jestli se posunulo
+
+		if ( postup.size() - 1 == pozice && predane == nullptr ) break; // posledni 
+
+		while ( predane == nullptr )  // uprostred animace -> cekej
+		{ predane = rozhrani.preber_usporadani(); my_sleep( 0.001 ); }
+
+		if ( memcmp( predane , aktualni.second.get_usporadani() , 4*4 ) == 0 ) 
+		{ 	// nikam se nepohlo znovu klik
+			++pocet_neuspesnych_in_row; 	
+			continue;
+		}
+		else break;
+				
+	     } while( true ); 
+	
+		if ( pocet_neuspesnych_in_row == 0 ) {
+#ifndef NDEBUG 
+			std::cout << "Uspel jsem na prvni pokus" << std::endl;
+#endif 
+			++pocet_uspesnych;
+		}
+		else {
+			std::cout 	<< "Neuspel jsem v tomto kroku celkem " 
+					<< pocet_neuspesnych_in_row << "x\n";
+			pocet_neuspesnych += pocet_neuspesnych_in_row;
+			pocet_neuspesnych_in_row = 0; // vynulovani
+		}
+	} // end for 
+
+// zaverecne statistiky
+	std::cout << "Neuspesnych celkem : " << pocet_neuspesnych << std::endl;
+	std::cout << "Uspesnych celkem   : " << pocet_uspesnych << std::endl;
+	std::cout << "Posunuti celkem    : " << postup.size() << std::endl;
+	std::cout << "Konec hry " << std::endl;
+}
+
+// uspe program 
+static void my_sleep ( float time )
+{
+	unsigned int sec = (int)floor(time);
+	unsigned int usec = (int)floor( (time - floor(time)) * 1e6 );
+
+	assert ( sec < 10 );
+	assert ( usec < 1000000 );
+
+	if ( sec )
+		sleep ( sec );
+	if ( usec > 100 ) // minimum
+		usleep( usec );
 }
