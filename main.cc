@@ -35,11 +35,12 @@ double time_difference = (	( time_now.tv_sec - time_beg.tv_sec ) +
 
 */
 
-static void thinking_simulation ( unsigned size , unsigned pos );
+static void thinking_simulation ( unsigned size , unsigned pos , unsigned unsucessful );
 
-static void thinking_simulation ( unsigned size , unsigned pos )
+static void thinking_simulation ( unsigned size , unsigned pos , unsigned unsucessful)
 {
 	static bool message_imposible = false;
+	static float last_wait = 0;
 	if ( pos == 0 ) message_imposible = false;
 
 	const static float minimum_time = 1.f/( 3.6f ); 	// maximalni frekvence ( click/sec )
@@ -62,8 +63,9 @@ static void thinking_simulation ( unsigned size , unsigned pos )
 
 	if ( size == pos + 1 && !message_imposible ) // posledni kousek --- vylepseni presne konvergence
 	{ // snazime se trefit presne do casu
-		if ( to_end >= minimum_time )
+		if ( to_end >= minimum_time ) {
 			my_sleep( to_end );  // presne 
+		}
 		else 
 			my_sleep( minimum_time ); // nepresne 
 		return; 
@@ -74,7 +76,8 @@ static void thinking_simulation ( unsigned size , unsigned pos )
 			rand_modulo = diff*1e7; // polovicni roztec
 			PRINT( rand_modulo );
 			rand_modulo = rand()%rand_modulo;
-			my_sleep ( rand_modulo + diff/2. + minimum_time );
+			last_wait = rand_modulo + diff/2. + minimum_time; 
+			my_sleep ( last_wait );
 			return ;
 		}
 		else
@@ -128,25 +131,34 @@ inline static void init_timer ( double time )
 int main ( int argc , char* argv[] ) 
 {
 	const char * predane;
+	double pozadovany_cas;
+	std::cout << "Pozadovany cas = " << std::flush;
+	std::cin >> pozadovany_cas;
+	if ( pozadovany_cas <= 10. )  exit( 1 );
 
 	std::vector< std::pair< int , OBJECT > > postup;
 	Engine solving_engine( 4 );
 	Comunication rozhrani;
 
 	// klikne na poskladej puzzle a prebere prvni rozpolozeni
+   while( 1 ){ 
+	std::cout << "Click -> poskladej puzzle " << std::endl;
 	predane = klik_poskladej_puzzle ( argc , rozhrani );
-	init_timer ( 20 );
+	init_timer ( pozadovany_cas );
 	// zacina se odpocitavat
 	std::cout << "Zacinam pocitat ... " << std::endl;
 	postup = solving_engine.run ((unsigned char *)predane);
-	std::cout << "Vypocet skoncil ";
+	std::cout << "Vypocet skoncil, zacina skladani ..." << std::endl;
 	skladani_policek ( rozhrani, postup, predane ); // posklada policka
-
 	
 	clock_gettime( CLOCK_REALTIME , &time_str.time_end ); // zacne se odpocitavat
 	std::cout << "Hotovo za : " << ( time_str.time_end.tv_sec - time_str.time_beg.tv_sec) +
 				( time_str.time_end.tv_nsec - time_str.time_beg.tv_nsec )/1e9
 		<< std::endl;
+
+	std::cout << "Cekam 3s" << std::endl;
+	sleep ( 3 );
+  }
 
 	return 0;
 }
@@ -202,7 +214,7 @@ static void skladani_policek (
 		rozhrani.click_on_area ( aktualni.first ); // klikne na index
 		
 //		my_sleep ( 1 ); // pocka vypocitanou hodnotu
-		thinking_simulation( postup.size() , pozice );
+		thinking_simulation( postup.size() , pozice , pocet_neuspesnych_in_row );
 		predane = rozhrani.preber_usporadani(); // zjisti jestli se posunulo
 
 		if ( postup.size() - 1 == pozice && predane == nullptr ) break; // posledni 
