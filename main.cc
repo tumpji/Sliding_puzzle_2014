@@ -43,6 +43,20 @@ static void thinking_simulation ( unsigned size , unsigned pos , unsigned unsuce
 	static float last_wait = 0;
 	if ( pos == 0 ) message_imposible = false;
 
+	switch ( unsucessful )
+	{
+		case 0: // neni proc
+			break;
+		case 1:
+		case 2: // nejrychleji
+			my_sleep( last_wait / 2. );
+			return;
+			break;
+		default: // dalsi budou pomaleji
+			my_sleep ( last_wait / 2. * (float)unsucessful );
+			break;
+	}
+
 	const static float minimum_time = 1.f/( 3.6f ); 	// maximalni frekvence ( click/sec )
 	// minimalni rozdil mezi optimem a maximem 
 	const static float minimum_opt = 1.f/( 3.2f ); // nejvetsi rychlost prumerna
@@ -64,10 +78,13 @@ static void thinking_simulation ( unsigned size , unsigned pos , unsigned unsuce
 	if ( size == pos + 1 && !message_imposible ) // posledni kousek --- vylepseni presne konvergence
 	{ // snazime se trefit presne do casu
 		if ( to_end >= minimum_time ) {
-			my_sleep( to_end );  // presne 
+			last_wait = to_end;
+			my_sleep( last_wait );  // presne 
 		}
-		else 
+		else {
+			last_wait = minimum_time;
 			my_sleep( minimum_time ); // nepresne 
+		}
 		return; 
 	}
 	else if ( size == pos + 2 && !message_imposible ) // predposledni
@@ -80,8 +97,10 @@ static void thinking_simulation ( unsigned size , unsigned pos , unsigned unsuce
 			my_sleep ( last_wait );
 			return ;
 		}
-		else
-			my_sleep( minimum_time );
+		else {
+			last_wait = minimum_time ;
+			my_sleep( last_wait );
+		}
 		return;
 	}
 
@@ -102,7 +121,8 @@ static void thinking_simulation ( unsigned size , unsigned pos , unsigned unsuce
 	float time_wait = ((double)rand_modulo)/1e7 + minimum_time ;
 
 	std::cout << "sleep: " << time_wait << std::endl;
-	my_sleep( time_wait );
+	last_wait = time_wait;
+	my_sleep( last_wait );
 }
 
 inline static void init_timer ( double time )
@@ -134,6 +154,7 @@ int main ( int argc , char* argv[] )
 	double pozadovany_cas;
 	std::cout << "Pozadovany cas = " << std::flush;
 	std::cin >> pozadovany_cas;
+	std::cin.ignore( 100 , '\n' );
 	if ( pozadovany_cas <= 10. )  exit( 1 );
 
 	std::vector< std::pair< int , OBJECT > > postup;
@@ -144,6 +165,7 @@ int main ( int argc , char* argv[] )
    while( 1 ){ 
 	std::cout << "Click -> poskladej puzzle " << std::endl;
 	predane = klik_poskladej_puzzle ( argc , rozhrani );
+	sleep ( 20 );
 	init_timer ( pozadovany_cas );
 	// zacina se odpocitavat
 	std::cout << "Zacinam pocitat ... " << std::endl;
