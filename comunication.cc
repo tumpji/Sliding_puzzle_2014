@@ -88,17 +88,16 @@ std::pair<unsigned , unsigned > Game_area::get_policko ( int index ) const
 	std::pair< unsigned , unsigned > ret_val;
 
 	// pozice horniho rohu policka ( boarder == 1  + neco navic )
-	ret_val.first = get_area_size()/ROZMER * ( index%ROZMER ) + x[0] + 5;
-	ret_val.second= get_area_size()/ROZMER * ( index/ROZMER ) + y[0] + 5;
+	ret_val.first = get_area_size()/ROZMER * ( index%ROZMER ) + x[0] + 1;
+	ret_val.second= get_area_size()/ROZMER * ( index/ROZMER ) + y[0] + 1;
 
-	unsigned nejvice_pridat = get_policko_size() - 5;
+	ret_val.first 	+= get_policko_size()/10; // boarder 10%
+	ret_val.second 	+= get_policko_size()/10;
 
+	unsigned nejvice_pridat = ( get_policko_size() * 8 )/10; // pohybujeme se v rozmezi 80%
 	
-	ret_val.first 	+= nejvice_pridat/2;
-	ret_val.second 	+= nejvice_pridat/2;
-	// pridat nahodne
-	//ret_val.first 	+= rand()%( nejvice_pridat );
-	//ret_val.second	+= rand()%( nejvice_pridat );
+	ret_val.first 	+= rand()%nejvice_pridat;
+	ret_val.second 	+= rand()%nejvice_pridat;
 
 	return ret_val;
 }
@@ -238,8 +237,10 @@ void Comunication::click_on_area ( int index )
 	std::cout << " click_on_area(" << index << ") " << std::flush;
 #endif
 	std::pair< unsigned, unsigned > misto = game_area.get_policko( index );
-	move_cursor_to_coordinates ( misto.first , misto.second );
-	click_coordinates ( );
+
+	move_cursor_to_coordinates ( misto.first , misto.second ); // pohne se
+
+	click_coordinates (); // klikne
 }
 
 
