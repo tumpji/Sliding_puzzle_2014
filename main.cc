@@ -270,57 +270,32 @@ static void skladani_policek (
 						// kliknuti na index aktualni.first
 						// se dostaneme z neho na dalsi v rade 
 
-	int pocet_neuspesnych_in_row = 0;	// kolikrat se kliknuti nepovedlo ( lag )
-	int pocet_neuspesnych = 0;		// celkove hodnoty
-	int pocet_uspesnych = 0;		// celkove hodnoty
-
 	std::cout << "pocet posunu = " << postup.size() << std::endl;
+
 	for ( unsigned pozice = 0; pozice < postup.size(); ++pozice ) // iterace po vsech mez.
 	{
 		aktualni = postup[pozice]; // aktualni mezikrok
 
-	    do { // zapoleni s lagy
 		rozhrani.click_on_area ( aktualni.first ); // klikne na index
-		
-//		my_sleep ( 1 ); // pocka vypocitanou hodnotu
-		thinking_simulation( postup.size() , pozice , pocet_neuspesnych_in_row );
+		thinking_simulation( postup.size() , pozice , 0 );
+
 		std::cout << '-' << std::flush;
 		predane = rozhrani.preber_usporadani(); // zjisti jestli se posunulo
 
-		if ( postup.size() - 1 == pozice && predane == nullptr ) break; // posledni 
+		// posledni -> potom nelze detekovat konec jinak nez cekanim
+		if ( postup.size() - 1 == pozice ) break;
 
-		while ( predane == nullptr )  // uprostred animace -> cekej
+		while ( predane == nullptr || // uprostred animace -> cekej
+			memcmp ( predane , aktualni.second.get_usporadani() , 4*4 ) == 0 )  // na stejnem obr.
 		{
-			std::cout << '-' << std::flush;
-			predane = rozhrani.preber_usporadani(); my_sleep( 0.001 ); }
+			std::cout << '-' << std::flush; // aby se obnovil obraz
+			predane = rozhrani.preber_usporadani(); my_sleep( 0.001 ); 
+		}
+		
 
-		if ( memcmp( predane , aktualni.second.get_usporadani() , 4*4 ) == 0 ) 
-		{ 	// nikam se nepohlo znovu klik
-			++pocet_neuspesnych_in_row; 	
-			continue;
-		}
-		else break;
-				
-	     } while( true ); 
-	
-		if ( pocet_neuspesnych_in_row == 0 ) {
-#ifndef NDEBUG 
-			std::cout << "Uspel jsem na prvni pokus" << std::endl;
-#endif 
-			++pocet_uspesnych;
-		}
-		else {
-			std::cout 	<< "Neuspel jsem v tomto kroku celkem " 
-					<< pocet_neuspesnych_in_row << "x\n";
-			pocet_neuspesnych += pocet_neuspesnych_in_row;
-			pocet_neuspesnych_in_row = 0; // vynulovani
-		}
 	} // end for 
 
 // zaverecne statistiky
-	std::cout << "Neuspesnych celkem : " << pocet_neuspesnych << std::endl;
-	std::cout << "Uspesnych celkem   : " << pocet_uspesnych << std::endl;
-	std::cout << "Posunuti celkem    : " << postup.size() << std::endl;
 	std::cout << "Konec hry " << std::endl;
 }
 
