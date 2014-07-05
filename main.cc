@@ -29,108 +29,10 @@ static void my_sleep ( float time );
 // posklada policka dle predaneho postupu
 static void skladani_policek ( Comunication& rozhrani, std::vector<std::pair<int, OBJECT>>& postup, const char * );
 
+// inicializuje strukturu time_str
+inline static void init_timer ( double time );
 
-static void thinking_simulation ( unsigned size, unsigned pos );
-
-static void thinking_simulation_last ( 	double & to_end, 
-					float& optimum, 
-					float& last_wait,
-					unsigned vzdalenost_od_posledniho )
-{
-	std::cout << "th_sim  ";
-	switch ( vzdalenost_od_posledniho )
-	{
-		case 0 :  // posledni
-			if ( to_end >= ( 1/3.5 ) ) // je to vetsi nez nejrychlejsi co se da stihnout ?
-			{
-				last_wait = to_end; // presne
-				my_sleep( last_wait );
-			}
-			else // nelze to stihnout 
-			{
-				last_wait = 1/3.5; // nejrychlejsi vyprodukovany
-				my_sleep( last_wait );
-			}
-			break;
-
-		case 1 : // predposledni
-			if ( to_end/2. >= ( 1/3.5 ) )
-			{
-				// minimum + 2/3 toho co je navic
-				last_wait = 1/3.5 + (to_end/2. - (1/3.5))*2./3. ;
-				my_sleep( last_wait );
-			}
-			else  
-			{	// jsme pozadu musi se dohnat to co jde ale nenapadne
-				last_wait = 1/3.5;
-				my_sleep( last_wait );
-			}
-			break;
-		case 2 : // predpredposledni
-			if ( to_end/3. >= ( 1/3.5 ) )
-			{
-				last_wait = 1/3.5 + (to_end/3. - (1/3.5))*3./5.;
-				my_sleep( last_wait );
-			}
-			else
-			{
-				last_wait = 1/3.4;
-				my_sleep ( last_wait );
-			}
-			break;
-	}
-	return;
-}
-
-static void thinking_simulation ( unsigned size , unsigned pos )
-{
-#ifndef NDEBUG
-	std::cout << "thinking_simulation : " << size << "  " << pos << "   " << std::endl;
-#endif
-
-	static bool message_imposible = false;
-	static float last_wait = 0;
-	if ( pos == 0 ) message_imposible = false;
-
-	const static float minimum_time = 1.f/( 3.5f );	// maximalni frekvence ( click/sec )
-	const static float minimum_opt = 1.f/( 3.25f );	// nejvetsi rychlost prumerna
-
-	timespec now; // aktualni cas
-	clock_gettime ( CLOCK_REALTIME, &now ); 
-
-	double to_end =	( - now.tv_sec + time_str.time_end.tv_sec ) +
-			( - now.tv_nsec + time_str.time_end.tv_nsec )/1e9 ;
-
-	float optimum = to_end/(float)( size-(pos+1) ); // sec/click
-	float diff = optimum - minimum_time;
-	int rand_modulo = (diff*2.*1e7)*5./6.;
-
-	PRINT( to_end );
-	PRINT( diff );
-	PRINT( optimum );
-
-	if ( size - ( pos + 1) < 3 && !message_imposible ) // predposledni a posledni cekani
-	{	thinking_simulation_last ( to_end , optimum, last_wait, size - (pos+1) );
-		return;
-	}
-
-	if ( optimum < minimum_opt || message_imposible ) {
-		rand_modulo = 2.*((1./3.2) - minimum_time)*1e7; // velke opt
-		if ( !message_imposible ) {
-			if ( size - ( pos + 1 ) > 4 ) // neplati kdyz se uz blizime 
-				message_imposible = true;
-			std::cout << "Nelze stihnout " << std::endl;
-		}
-	}
-	
-	PRINT( rand_modulo );
-
-	assert( rand_modulo  > 0 );
-	rand_modulo = (rand()%rand_modulo);
-	float time_wait = rand_modulo/1e7 + minimum_time;
-	last_wait = time_wait;
-	my_sleep( last_wait );
-}
+static float thinking_simulation ( unsigned size, unsigned pos );
 
 inline static void init_timer ( double time )
 {
@@ -150,10 +52,7 @@ inline static void init_timer ( double time )
 		++time_str.time_end.tv_sec;
 		time_str.time_end.tv_nsec -= 1e9;
 	}
-	 
-
 }
-
 
 int main ( int argc , char* argv[] ) 
 {
@@ -178,7 +77,7 @@ int main ( int argc , char* argv[] )
 		std::cout << (int)predane[x] << "  " ;
 	std::cout << std::endl;
 	
-	my_sleep ( 20 ); // delete
+	//my_sleep ( 20 ); // delete
 
 	init_timer ( pozadovany_cas );
 	// zacina se odpocitavat
@@ -207,7 +106,83 @@ int main ( int argc , char* argv[] )
 	return 0;
 }
 
+// zpresnuje nahodne klikani ( jeho konvergenci k vyslednemu casu )
+static float thinking_simulation_last (	double & to_end,  // do pozadovaneho casu
+					float& optimum,  // prumerny cas
+					unsigned vzdalenost_od_posledniho ) // kolik jeste
+{
+	std::cout << "last ";
+	switch ( vzdalenost_od_posledniho )
+	{
+		case 0 :  // posledni
+			if ( to_end >= ( 1/3.5 ) ) // je to vetsi nez nejrychlejsi co se da stihnout ?
+				return to_end; // presne
+			else // nelze to stihnout 
+				return 1/3.5; // nejrychlejsi vyprodukovany
+			break;
 
+		case 1 : // predposledni
+
+			if ( to_end/2. >= ( 1/3.5 ) ) // minimum + 2/3 toho co je navic
+				return 1/3.5 + (to_end/2. - (1/3.5))*2./3. ;
+			else // jsme pozadu musi se dohnat to co jde ale nenapadne
+				return 1/3.5;
+			break;
+
+		case 2 : // predpredposledni
+			if ( to_end/3. >= ( 1/3.5 ) )
+				return 1/3.5 + (to_end/3. - (1/3.5))*3./5.;
+			else
+				return 1/3.4;
+			break;
+
+		default:
+			std::cerr << "Chyba ... switch ve funkci thinking_simulation_last( double, float, unsigned );\n";
+			exit(1);
+			break;
+	}
+}
+
+// generuje nahodne zpozdeni kliku
+static float thinking_simulation ( unsigned size , unsigned pos )
+{
+#ifndef NDEBUG
+	std::cout << "thinking_simulation : " << size << "  " << pos << "   " << std::endl;
+#endif
+
+	static bool message_imposible;
+	if ( pos == 0 ) message_imposible = false;
+
+	const static float minimum_time = 1.f/( 3.5f );	// maximalni frekvence ( click/sec )
+	const static float minimum_opt = 1.f/( 3.25f );	// nejvetsi rychlost prumerna
+
+	timespec now; // aktualni cas
+	clock_gettime ( CLOCK_REALTIME, &now ); 
+
+	double to_end =	( - now.tv_sec + time_str.time_end.tv_sec ) +
+			( - now.tv_nsec + time_str.time_end.tv_nsec )/1e9 ;
+
+	float optimum = to_end/(float)( size-(pos+1) ); // sec/click
+	float diff = optimum - minimum_time;
+	int rand_modulo = diff*(2.*1e7*5./6.); 	// 2 - z obou stran konvergence 
+						// 1e7 - aby rand()%rand_modulo padl vne a ne vzdy 0
+						// 5/6 - prodleva regulace
+
+	// zlepsuje konvergenci, pokud to ma smysl
+	if ( size - ( pos + 1) < 3 && !message_imposible ) 
+		return thinking_simulation_last ( to_end , optimum, size - (pos+1) );
+
+	if ( optimum < minimum_opt || message_imposible ) { // moc male cekani
+		rand_modulo = 2.*((1./3.2) - minimum_time)*1e7; // velke opt
+		if ( !message_imposible ) {
+			message_imposible = true;
+			std::cout << "Nelze stihnout " << std::endl;
+		}
+	}
+
+	rand_modulo = (rand()%rand_modulo);
+	return rand_modulo/1e7 + minimum_time;
+}
 
 
 // klikne na poskladej puzzle a pocka na odpoved a lag
@@ -238,6 +213,15 @@ static const char * klik_poskladej_puzzle ( int argc, Comunication& rozhrani )
 	return predane;
 }
 
+/*
+static void sleep_lag_red_fce ( float sleep_time , bool after )
+{
+	// reakcni doba = 0.5s
+	const static float reaction_time_min = 0.5f;
+	static time_start
+}
+*/
+// algoritmus skladani podle vypocitaneho postupu
 static void skladani_policek ( 
 			Comunication& rozhrani, 
 			std::vector<std::pair<int, OBJECT>>& postup,
@@ -254,7 +238,7 @@ static void skladani_policek (
 		aktualni = postup[pozice]; // aktualni mezikrok
 
 		rozhrani.click_on_area ( aktualni.first ); // klikne na index
-		thinking_simulation( postup.size() , pozice );
+		my_sleep( thinking_simulation( postup.size() , pozice ) ); // cekani
 
 		std::cout << '-' << std::flush;
 		predane = rozhrani.preber_usporadani(); // zjisti jestli se posunulo
@@ -275,7 +259,6 @@ static void skladani_policek (
 
 	} // end for 
 
-// zaverecne statistiky
 	std::cout << "Konec hry " << std::endl;
 }
 
