@@ -27,38 +27,16 @@ static const char * klik_poskladej_puzzle ( int argc , Comunication& rozhrani );
 static void my_sleep ( float time );
 
 // posklada policka dle predaneho postupu
-static void skladani_policek ( Comunication& rozhrani, std::vector<std::pair<int, OBJECT>>& postup , const char * );
+static void skladani_policek ( Comunication& rozhrani, std::vector<std::pair<int, OBJECT>>& postup, const char * );
 
-/*
-double time_difference = (	( time_now.tv_sec - time_beg.tv_sec ) + 
-				(time_now.tv_nsec - time_beg.tv_nsec)/1e9 ) ;
 
-*/
+static void thinking_simulation ( unsigned size, unsigned pos );
 
-static void thinking_simulation ( unsigned size , unsigned pos , unsigned unsucessful );
-
-// to co se deje po neuspesnem pokusu
-static void thinking_simulation_unsucessful ( const float & last_wait , unsigned & unsucessful )
-{
-	switch ( unsucessful )
-	{
-		case 1:
-		case 2: // nejrychleji
-			my_sleep( last_wait / 2. );
-			return;
-			break;
-		default: // dalsi budou pomaleji
-			my_sleep ( last_wait / 2. * (float)unsucessful );
-			break;
-	}
-}
-
-static void thinking_simulation_last ( 	double & to_end , 
-					float& optimum , 
+static void thinking_simulation_last ( 	double & to_end, 
+					float& optimum, 
 					float& last_wait,
 					unsigned vzdalenost_od_posledniho )
 {
-	
 	std::cout << "th_sim  ";
 	switch ( vzdalenost_od_posledniho )
 	{
@@ -104,16 +82,15 @@ static void thinking_simulation_last ( 	double & to_end ,
 	return;
 }
 
-static void thinking_simulation ( unsigned size , unsigned pos , unsigned unsucessful)
+static void thinking_simulation ( unsigned size , unsigned pos )
 {
 #ifndef NDEBUG
-	std::cout << "thinking_simulation : " << size << "  " << pos << "   " << unsucessful << std::endl;
+	std::cout << "thinking_simulation : " << size << "  " << pos << "   " << std::endl;
 #endif
 
 	static bool message_imposible = false;
 	static float last_wait = 0;
 	if ( pos == 0 ) message_imposible = false;
-	if ( unsucessful ) { thinking_simulation_unsucessful ( last_wait , unsucessful ); return ; }
 
 	const static float minimum_time = 1.f/( 3.5f );	// maximalni frekvence ( click/sec )
 	const static float minimum_opt = 1.f/( 3.25f );	// nejvetsi rychlost prumerna
@@ -277,7 +254,7 @@ static void skladani_policek (
 		aktualni = postup[pozice]; // aktualni mezikrok
 
 		rozhrani.click_on_area ( aktualni.first ); // klikne na index
-		thinking_simulation( postup.size() , pozice , 0 );
+		thinking_simulation( postup.size() , pozice );
 
 		std::cout << '-' << std::flush;
 		predane = rozhrani.preber_usporadani(); // zjisti jestli se posunulo
@@ -288,9 +265,12 @@ static void skladani_policek (
 		while ( predane == nullptr || // uprostred animace -> cekej
 			memcmp ( predane , aktualni.second.get_usporadani() , 4*4 ) == 0 )  // na stejnem obr.
 		{
+			if ( predane == nullptr ) {
+				std::cout << "speedup..." << std::endl; break; }
 			std::cout << '-' << std::flush; // aby se obnovil obraz
 			predane = rozhrani.preber_usporadani(); my_sleep( 0.001 ); 
 		}
+		
 		
 
 	} // end for 
